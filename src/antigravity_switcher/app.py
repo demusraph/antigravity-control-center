@@ -1540,6 +1540,24 @@ HTML_INTERFACE = """<!DOCTYPE html>
       { id: 'sec_4', x: 86.3, y: 88.9, dept: 'secops', title: 'Compliance Guard', defaultTool: 'cred_check', toolSummary: 'Zero-Leak & DPAPI Enforcer', dir: 'up', status: 'IN_MEETING' }
     ];
 
+    // Polyfill CanvasRenderingContext2D.prototype.roundRect for QtWebEngine (Chrome 87) & older WebViews
+    if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+        let r = 0;
+        if (typeof radii === 'number') r = radii;
+        else if (Array.isArray(radii)) r = radii[0] || 0;
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        this.moveTo(x + r, y);
+        this.arcTo(x + w, y, x + w, y + h, r);
+        this.arcTo(x + w, y + h, x, y + h, r);
+        this.arcTo(x, y + h, x, y, r);
+        this.arcTo(x, y, x + w, y, r);
+        this.closePath();
+        return this;
+      };
+    }
+
     // --- HIGH-PERFORMANCE HTML5 CANVAS PIXEL OFFICE ENGINE ---
     let pixelOfficeCanvas = null;
     let pixelOfficeCtx = null;
@@ -1552,7 +1570,12 @@ HTML_INTERFACE = """<!DOCTYPE html>
     // Preload Office Floor Background
     const officeBgImg = new Image();
     let officeBgLoaded = false;
-    officeBgImg.onload = () => { officeBgLoaded = true; };
+    officeBgImg.onload = () => {
+      officeBgLoaded = true;
+      if (!pixelOfficeAnimationId && pixelOfficeCtx) {
+        pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
+      }
+    };
     officeBgImg.src = '/assets/office_floor_pixel.png';
 
     // Clean Role Map for Badges
@@ -2200,12 +2223,8 @@ HTML_INTERFACE = """<!DOCTYPE html>
         drawables.push({
           zY: 816,
           draw: () => {
+            // Authentic desk slice from office floor background
             pixelOfficeCtx.drawImage(officeBgImg, 156, 819, 112, 55, 156, 819, 112, 55);
-            // Executive glowing ultra-thin laptop on green desk blotter
-            pixelOfficeCtx.fillStyle = '#475569';
-            pixelOfficeCtx.fillRect(203, 830, 18, 7);
-            pixelOfficeCtx.fillStyle = '#38bdf8';
-            pixelOfficeCtx.fillRect(204, 830, 16, 5);
           }
         });
 
@@ -2221,13 +2240,17 @@ HTML_INTERFACE = """<!DOCTYPE html>
       // 5. Sort Drawables by Z-Depth (Sandwich Occlusion)
       drawables.sort((a, b) => a.zY - b.zY);
 
-      // 6. Execute Render Calls in Sorted Order
-      for (let i = 0; i < drawables.length; i++) {
-        drawables[i].draw();
-      }
-
-      // 7. Request Next Animation Frame
+      // 6. Request Next Animation Frame (Guarantees loop continues even if draw errors occur)
       pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
+
+      // 7. Execute Render Calls in Sorted Order with error safety
+      for (let i = 0; i < drawables.length; i++) {
+        try {
+          drawables[i].draw();
+        } catch (e) {
+          console.error("Error drawing drawable " + i + ":", e);
+        }
+      }
     }
 
     function renderPixelOffice(data) {
