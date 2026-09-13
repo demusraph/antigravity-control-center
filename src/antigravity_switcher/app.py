@@ -972,9 +972,50 @@ HTML_INTERFACE = """<!DOCTYPE html>
       backdrop-filter: blur(8px);
       min-width: 220px;
     }
+    /* Antigravity Launch Loading Screen (1:1 with official launch reference) */
+    @keyframes agyLaunchPulse {
+      0%, 80%, 100% {
+        opacity: 0.25;
+        transform: scale(0.85);
+        background-color: #4b5563;
+      }
+      40% {
+        opacity: 1;
+        transform: scale(1.18);
+        background-color: #f3f4f6;
+        box-shadow: 0 0 8px rgba(243, 244, 246, 0.45);
+      }
+    }
+    .agy-loader-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: #4b5563;
+      animation: agyLaunchPulse 1.35s infinite ease-in-out both;
+    }
+    .agy-dot-1 { animation-delay: -0.32s; }
+    .agy-dot-2 { animation-delay: -0.16s; }
+    .agy-dot-3 { animation-delay: 0s; }
   </style>
 </head>
 <body class="font-sans antialiased overflow-hidden flex flex-col h-screen select-none bg-canvas text-[#CCCCCC]">
+
+  <!-- Antigravity Native App Launch Screen (1:1 with official launch reference) -->
+  <div id="app-launch-loader" class="fixed inset-0 z-[999999] bg-[#0c0d10] flex flex-col items-center justify-center select-none" style="transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s;">
+    <div class="flex flex-col items-center justify-center">
+      <!-- 3 Animated Loading Wave Dots -->
+      <div class="flex items-center gap-[9px] mb-[18px]">
+        <span class="agy-loader-dot agy-dot-1"></span>
+        <span class="agy-loader-dot agy-dot-2"></span>
+        <span class="agy-loader-dot agy-dot-3"></span>
+      </div>
+      <!-- Label -->
+      <div class="text-[#8e95a0] text-[13.5px] font-normal tracking-[0.015em] font-sans antialiased">
+        Loading Antigravity
+      </div>
+    </div>
+  </div>
 
   <!-- Antigravity 2.0 1:1 Seamless Obsidian Top Bar with Clear Hierarchy -->
   <div class="h-[36px] bg-[#161616] border-b border-[#222222] flex items-center justify-between shrink-0 select-none text-xs z-50">
@@ -1374,6 +1415,33 @@ HTML_INTERFACE = """<!DOCTYPE html>
     let currentSelectedCid = null;
     let subagentsPollingTimer = null;
     let mcpPollingTimer = null;
+
+    // --- Antigravity App Launch Loading Screen Controller ---
+    const appLaunchStartTime = performance.now();
+    let appLoaderDismissed = false;
+
+    function dismissAppLoader() {
+      if (appLoaderDismissed) return;
+      appLoaderDismissed = true;
+      const loader = document.getElementById('app-launch-loader');
+      if (!loader) return;
+      loader.style.opacity = '0';
+      loader.style.pointerEvents = 'none';
+      setTimeout(() => {
+        loader.style.visibility = 'hidden';
+        loader.style.display = 'none';
+      }, 550);
+    }
+
+    function scheduleLoaderDismissal() {
+      const elapsed = performance.now() - appLaunchStartTime;
+      const minDisplayTime = 1300; // 1.3s ensures user sees the slick smooth animation
+      const remaining = Math.max(0, minDisplayTime - elapsed);
+      setTimeout(dismissAppLoader, remaining);
+    }
+
+    window.addEventListener('load', () => scheduleLoaderDismissal());
+    setTimeout(dismissAppLoader, 3500); // Failsafe safety fallback
 
     // --- React Bits: SpotlightCard Mouse Tracking ---
     function initSpotlightCards() {
@@ -2185,6 +2253,8 @@ HTML_INTERFACE = """<!DOCTYPE html>
       });
 
       // ── DYNAMIC AGENT STATIONS & WORKSTATIONS ──
+      const overheadBadges = [];
+
       for (let sIdx = 0; sIdx < pixelOfficeStations.length; sIdx++) {
         const slot = pixelOfficeStations[sIdx];
         const staff = slot.assignedStaff;
@@ -2219,13 +2289,19 @@ HTML_INTERFACE = """<!DOCTYPE html>
               pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
               if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
               drawCharFrame(pixelOfficeCtx, charIdx, 'up', isWorking ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
-              
-              // Overhead UI Badge for All Staff!
-              const badgeOx = slot.badge_ox || 0;
-              const badgeOy = slot.badge_oy || -24;
-              drawFloatingBadge(pixelOfficeCtx, tx + 8 + badgeOx, ty + badgeOy, staff, slot, isHovered, pixelOfficeFrame);
               pixelOfficeCtx.restore();
             }
+          });
+
+          // Queue Overhead UI Badge for TOP-LAYER rendering pass
+          const badgeOx = slot.badge_ox || 0;
+          const badgeOy = slot.badge_oy || -24;
+          overheadBadges.push({
+            bx: tx + 8 + badgeOx,
+            by: ty + badgeOy,
+            staff: staff,
+            slot: slot,
+            isHovered: isHovered
           });
         } else {
           // Table or Lounge seats (dirs == 'right', 'left', 'down')
@@ -2240,13 +2316,19 @@ HTML_INTERFACE = """<!DOCTYPE html>
               pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
               if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
               drawCharFrame(pixelOfficeCtx, charIdx, slot.dir, isWorking ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
-              
-              // Overhead UI Badge for All Staff!
-              const badgeOx = slot.badge_ox || 0;
-              const badgeOy = slot.badge_oy || -24;
-              drawFloatingBadge(pixelOfficeCtx, tx + 8 + badgeOx, ty + badgeOy, staff, slot, isHovered, pixelOfficeFrame);
               pixelOfficeCtx.restore();
             }
+          });
+
+          // Queue Overhead UI Badge for TOP-LAYER rendering pass
+          const badgeOx = slot.badge_ox || 0;
+          const badgeOy = slot.badge_oy || -24;
+          overheadBadges.push({
+            bx: tx + 8 + badgeOx,
+            by: ty + badgeOy,
+            staff: staff,
+            slot: slot,
+            isHovered: isHovered
           });
         }
       }
@@ -2255,6 +2337,17 @@ HTML_INTERFACE = """<!DOCTYPE html>
       drawables.sort((a, b) => a.zy - b.zy);
       drawables.forEach(d => {
         try { d.draw(); } catch (e) { console.error("Drawable error:", e); }
+      });
+
+      // ── TOP-MOST RENDER PASS: OVERHEAD UI BADGES ──
+      // Rendered AFTER all world objects so NO furniture, desk, PC, or decor ever occludes them!
+      overheadBadges.sort((a, b) => (a.isHovered ? 1 : 0) - (b.isHovered ? 1 : 0));
+      overheadBadges.forEach(b => {
+        try {
+          drawFloatingBadge(pixelOfficeCtx, b.bx, b.by, b.staff, b.slot, b.isHovered, pixelOfficeFrame);
+        } catch (e) {
+          console.error("Overhead badge render error:", e);
+        }
       });
 
       pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
@@ -2973,6 +3066,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
     }
 
     function renderUI() {
+      scheduleLoaderDismissal();
       // Header & Status with DecryptedText effect
       const emailEl = document.getElementById('current-active-email');
       if (emailEl) {
