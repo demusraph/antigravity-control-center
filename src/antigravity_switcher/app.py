@@ -1192,20 +1192,23 @@ HTML_INTERFACE = """<!DOCTYPE html>
           <div class="flex items-center gap-1 shrink-0 font-mono text-[10.5px]">
             <button onclick="setPixelStageScale('fit')" id="btn-stage-fit" class="btn-spring px-2 py-0.5 rounded border border-accent/40 bg-accent/20 text-accent transition-all font-medium">Fit</button>
             <button onclick="setPixelStageScale('100')" id="btn-stage-100" class="btn-spring px-2 py-0.5 rounded border border-hairline bg-surface-2 hover:bg-surface-3 text-gray-400 hover:text-white transition-all">100%</button>
+            <button onclick="setPixelStageScale('150')" id="btn-stage-150" class="btn-spring px-2 py-0.5 rounded border border-hairline bg-surface-2 hover:bg-surface-3 text-gray-400 hover:text-white transition-all">150%</button>
             <button onclick="togglePixelCrt()" id="btn-stage-crt" class="btn-spring px-2 py-0.5 rounded border border-hairline bg-surface-2 hover:bg-surface-3 text-gray-400 hover:text-white transition-all">CRT</button>
           </div>
         </div>
 
         <!-- Master Pixel Viewport Container -->
-        <div id="pixel-stage-container" class="relative w-full rounded-xl overflow-hidden border border-hairline shadow-2xl bg-[#09090d] select-none flex items-center justify-center p-3">
+        <div id="pixel-stage-container" class="relative w-full rounded-xl overflow-auto border border-hairline shadow-2xl bg-[#09090d] select-none flex items-center justify-center p-3">
           <div id="pixel-stage" class="relative overflow-hidden rounded-lg shadow-2xl max-w-full" style="width: 720px; aspect-ratio: 1/1;">
-            <!-- Brand New 1024x1024 Pixel Art Floor Map -->
-            <img id="pixel-map-img" src="/assets/office_floor_pixel.png" alt="Office Floor Map" class="w-full h-full block pixel-art-img select-none pointer-events-none" />
+            <!-- Interactive 1024x1024 HTML5 Canvas Pixel Office Engine -->
+            <canvas id="pixel-office-canvas" width="1024" height="1024" class="w-full h-full block cursor-pointer select-none" style="image-rendering: pixelated;"></canvas>
             <!-- CRT Arcade Scanlines Overlay -->
             <div id="pixel-crt-overlay" class="absolute inset-0 pointer-events-none crt-scanlines opacity-0 transition-opacity duration-300 z-40"></div>
-            <!-- High-Density Dynamic Agents Layer (20+ Employees!) -->
-            <div id="pixel-agents-layer" class="absolute inset-0 z-20">
-              <!-- Dynamically populated pixel employees -->
+            <!-- Dynamic Floating Telemetry HUD Tooltip on Hover -->
+            <div id="pixel-canvas-tooltip" class="absolute pointer-events-none z-50 opacity-0 transition-opacity duration-150 transform -translate-x-1/2 -translate-y-full mb-3" style="left: 0px; top: 0px;">
+              <div id="pixel-canvas-tooltip-body" class="bg-[#0d0d14]/95 border border-hairline rounded-lg p-2.5 shadow-2xl backdrop-blur-md min-w-[210px] text-left">
+                <!-- Populated dynamically via JS -->
+              </div>
             </div>
           </div>
         </div>
@@ -1494,253 +1497,741 @@ HTML_INTERFACE = """<!DOCTYPE html>
     let currentPixelStageScale = 'fit';
     let pixelCrtActive = false;
 
-    // 28 Physical Furniture & Desk Stations on the Brand New 1024x1024 Architectural Floor Plan
+    // 28 Physical Furniture & Desk Stations calibrated to exact chair centers on the 1024x1024 Architectural Floor Plan
     const OFFICE_STATIONS = [
-      // 1. Engineering Bullpen (8 Desks)
-      { id: 'eng_1', x: 47.8, y: 19.1, dept: 'engineering', title: 'Frontend Engineer', defaultTool: 'write_to_file', toolSummary: 'UI & Micro-Interactions (React Bits)', dir: 'up', status: 'WORKING' },
-      { id: 'eng_2', x: 58.1, y: 19.1, dept: 'engineering', title: 'Backend Core Dev', defaultTool: 'run_command', toolSummary: 'FastAPI / WebSocket Pipeline', dir: 'up', status: 'WORKING' },
-      { id: 'eng_3', x: 68.8, y: 19.1, dept: 'engineering', title: 'Systems Refactorer', defaultTool: 'replace_file_content', toolSummary: 'Surgical Edits & AST Optimization', dir: 'up', status: 'WORKING' },
-      { id: 'eng_4', x: 47.8, y: 31.2, dept: 'engineering', title: 'DevOps & SRE', defaultTool: 'manage_task', toolSummary: 'CI/CD Pipeline & Windows PyInstaller', dir: 'up', status: 'WORKING' },
-      { id: 'eng_5', x: 58.1, y: 31.2, dept: 'engineering', title: 'Fullstack Engineer', defaultTool: 'write_to_file', toolSummary: 'Feature Integration & DoD Validation', dir: 'up', status: 'WORKING' },
-      { id: 'eng_6', x: 68.8, y: 31.2, dept: 'engineering', title: 'Algorithm Specialist', defaultTool: 'eval_metric', toolSummary: 'Performance Tuning & Latency Benchmarks', dir: 'up', status: 'WORKING' },
-      { id: 'eng_7', x: 87.4, y: 31.7, dept: 'engineering', title: 'Lead Architect', defaultTool: 'view_file', toolSummary: 'Codebase Verification & Quality Standard', dir: 'up', status: 'WORKING' },
-      { id: 'eng_8', x: 87.4, y: 21.0, dept: 'engineering', title: 'Release Automator', defaultTool: 'run_command', toolSummary: 'GitHub Actions Release & Distribution', dir: 'up', status: 'WORKING' },
+      // 1. Engineering Bullpen (8 Desks - 4 Top Row, 4 Bottom Row)
+      { id: 'eng_1', x: 49.6, y: 21.3, dept: 'engineering', title: 'Frontend Engineer', defaultTool: 'write_to_file', toolSummary: 'UI & Micro-Interactions (React Bits)', dir: 'up', status: 'WORKING' },
+      { id: 'eng_2', x: 59.6, y: 21.3, dept: 'engineering', title: 'Backend Core Dev', defaultTool: 'run_command', toolSummary: 'FastAPI / WebSocket Pipeline', dir: 'up', status: 'WORKING' },
+      { id: 'eng_3', x: 69.5, y: 21.3, dept: 'engineering', title: 'Systems Refactorer', defaultTool: 'replace_file_content', toolSummary: 'Surgical Edits & AST Optimization', dir: 'up', status: 'WORKING' },
+      { id: 'eng_8', x: 89.8, y: 21.3, dept: 'engineering', title: 'Release Automator', defaultTool: 'run_command', toolSummary: 'GitHub Actions Release & Distribution', dir: 'up', status: 'WORKING' },
+      { id: 'eng_4', x: 49.6, y: 33.4, dept: 'engineering', title: 'DevOps & SRE', defaultTool: 'manage_task', toolSummary: 'CI/CD Pipeline & Windows PyInstaller', dir: 'up', status: 'WORKING' },
+      { id: 'eng_5', x: 59.6, y: 33.4, dept: 'engineering', title: 'Fullstack Engineer', defaultTool: 'write_to_file', toolSummary: 'Feature Integration & DoD Validation', dir: 'up', status: 'WORKING' },
+      { id: 'eng_6', x: 69.5, y: 33.4, dept: 'engineering', title: 'Algorithm Specialist', defaultTool: 'eval_metric', toolSummary: 'Performance Tuning & Latency Benchmarks', dir: 'up', status: 'WORKING' },
+      { id: 'eng_7', x: 89.8, y: 33.4, dept: 'engineering', title: 'Lead Architect', defaultTool: 'view_file', toolSummary: 'Codebase Verification & Quality Standard', dir: 'up', status: 'WORKING' },
 
       // 2. Data Science & Server Lab (4 Stations)
-      { id: 'lab_1', x: 23.9, y: 17.1, dept: 'intelligence', title: 'Model Evaluator', defaultTool: 'eval_prompt', toolSummary: 'Prompt Perplexity & Reasoning Audit', dir: 'up', status: 'WORKING' },
-      { id: 'lab_2', x: 23.9, y: 26.8, dept: 'intelligence', title: 'Knowledge Miner', defaultTool: 'grep_search', toolSummary: 'DemusBrain Vault Indexing & MOC Sync', dir: 'up', status: 'WORKING' },
-      { id: 'lab_3', x: 7.3, y: 32.7, dept: 'intelligence', title: 'Server Infra SRE', defaultTool: 'psutil_check', toolSummary: 'Hardware Telemetry & Process Watcher', dir: 'up', status: 'WORKING' },
-      { id: 'lab_4', x: 13.7, y: 32.7, dept: 'intelligence', title: 'Data Pipeline Analyst', defaultTool: 'view_file', toolSummary: 'Telemetry & Token Flow Lineage Audit', dir: 'up', status: 'IN_MEETING' },
+      { id: 'lab_1', x: 24.4, y: 16.4, dept: 'intelligence', title: 'Model Evaluator', defaultTool: 'eval_prompt', toolSummary: 'Prompt Perplexity & Reasoning Audit', dir: 'up', status: 'WORKING' },
+      { id: 'lab_2', x: 24.9, y: 26.9, dept: 'intelligence', title: 'Knowledge Miner', defaultTool: 'grep_search', toolSummary: 'DemusBrain Vault Indexing & MOC Sync', dir: 'right', status: 'WORKING' },
+      { id: 'lab_3', x: 20.5, y: 23.4, dept: 'intelligence', title: 'Server Infra SRE', defaultTool: 'psutil_check', toolSummary: 'Hardware Telemetry & Process Watcher', dir: 'left', status: 'WORKING' },
+      { id: 'lab_4', x: 14.2, y: 33.4, dept: 'intelligence', title: 'Data Pipeline Analyst', defaultTool: 'view_file', toolSummary: 'Telemetry & Token Flow Lineage Audit', dir: 'down', status: 'IN_MEETING' },
 
       // 3. Executive Suite (3 Stations)
-      { id: 'exec_1', x: 19.7, y: 74.7, dept: 'executive', title: 'Lead Orchestrator (Root)', defaultTool: 'invoke_subagent', toolSummary: 'Autonomous Primary Loop & Strategy', dir: 'down', isPrimary: true, status: 'WORKING' },
-      { id: 'exec_2', x: 7.6, y: 80.5, dept: 'executive', title: 'Strategic Advisor', defaultTool: 'sync_plan', toolSummary: 'High-Level Architectural Review', dir: 'right', status: 'IN_MEETING' },
-      { id: 'exec_3', x: 15.1, y: 90.3, dept: 'executive', title: 'Chief Systems Architect', defaultTool: 'break', toolSummary: 'System Blueprinting & Roadmap', dir: 'up', status: 'STANDBY' },
+      { id: 'exec_1', x: 20.7, y: 79.3, dept: 'executive', title: 'Lead Orchestrator (Root)', defaultTool: 'invoke_subagent', toolSummary: 'Autonomous Primary Loop & Strategy', dir: 'down', isPrimary: true, status: 'WORKING' },
+      { id: 'exec_2', x: 16.1, y: 90.8, dept: 'executive', title: 'Strategic Advisor', defaultTool: 'sync_plan', toolSummary: 'High-Level Architectural Review', dir: 'up', status: 'IN_MEETING' },
+      { id: 'exec_3', x: 20.0, y: 90.8, dept: 'executive', title: 'Chief Systems Architect', defaultTool: 'break', toolSummary: 'System Blueprinting & Roadmap', dir: 'up', status: 'STANDBY' },
 
       // 4. Cozy Library & Strategy Room (2 Stations)
-      { id: 'lib_1', x: 17.6, y: 53.2, dept: 'intelligence', title: 'Research Fellow', defaultTool: 'read_url_content', toolSummary: 'Technical RFC & Academic Paper Review', dir: 'right', status: 'WORKING' },
-      { id: 'lib_2', x: 23.9, y: 53.2, dept: 'intelligence', title: 'Docs Archivist', defaultTool: 'write_to_file', toolSummary: 'Permanent Knowledge Compounding', dir: 'left', status: 'STANDBY' },
+      { id: 'lib_1', x: 19.0, y: 54.5, dept: 'intelligence', title: 'Research Fellow', defaultTool: 'read_url_content', toolSummary: 'Technical RFC & Academic Paper Review', dir: 'right', status: 'WORKING' },
+      { id: 'lib_2', x: 24.9, y: 54.5, dept: 'intelligence', title: 'Docs Archivist', defaultTool: 'write_to_file', toolSummary: 'Permanent Knowledge Compounding', dir: 'left', status: 'STANDBY' },
 
       // 5. Cafeteria & Breakroom (3 Stations)
-      { id: 'cafe_1', x: 81.5, y: 45.9, dept: 'executive', title: 'Espresso Standby Agent', defaultTool: 'break', toolSummary: 'Espresso Break & Brainstorming', dir: 'up', status: 'STANDBY' },
-      { id: 'cafe_2', x: 73.7, y: 52.2, dept: 'engineering', title: 'Standby Developer', defaultTool: 'break', toolSummary: 'Code Review & Coffee Chat', dir: 'down', status: 'STANDBY' },
-      { id: 'cafe_3', x: 86.4, y: 52.2, dept: 'secops', title: 'Standby Sentinel', defaultTool: 'break', toolSummary: 'Recharge & Standby Watch', dir: 'down', status: 'STANDBY' },
+      { id: 'cafe_1', x: 79.5, y: 47.4, dept: 'executive', title: 'Espresso Standby Agent', defaultTool: 'break', toolSummary: 'Espresso Break & Brainstorming', dir: 'up', status: 'STANDBY' },
+      { id: 'cafe_2', x: 71.1, y: 53.3, dept: 'engineering', title: 'Standby Developer', defaultTool: 'break', toolSummary: 'Code Review & Coffee Chat', dir: 'right', status: 'STANDBY' },
+      { id: 'cafe_3', x: 82.5, y: 53.3, dept: 'secops', title: 'Standby Sentinel', defaultTool: 'break', toolSummary: 'Recharge & Standby Watch', dir: 'right', status: 'STANDBY' },
 
       // 6. SecOps & Incident War Room (8 Conference & Command Seats)
-      { id: 'sec_1', x: 77.6, y: 70.8, dept: 'secops', title: 'Security Sentinel', defaultTool: 'threat_watch', toolSummary: 'Threat Monitoring & Zero-Trust Verification', dir: 'down', status: 'IN_MEETING' },
-      { id: 'sec_2', x: 84.5, y: 72.8, dept: 'secops', title: 'Penetration Tester', defaultTool: 'vuln_probe', toolSummary: 'Attack Surface Enumeration & Fuzzing', dir: 'down', status: 'IN_MEETING' },
-      { id: 'sec_3', x: 87.4, y: 79.6, dept: 'secops', title: 'Red Team Hunter', defaultTool: 'audit_chain', toolSummary: 'Defensive Security Triage & Exploit Analysis', dir: 'left', status: 'IN_MEETING' },
-      { id: 'sec_4', x: 85.0, y: 86.9, dept: 'secops', title: 'Compliance Guard', defaultTool: 'cred_check', toolSummary: 'Zero-Leak & DPAPI Enforcer', dir: 'up', status: 'IN_MEETING' },
-      { id: 'sec_5', x: 77.6, y: 90.3, dept: 'secops', title: 'Incident Commander', defaultTool: 'war_room', toolSummary: 'Incident Triage & War Room Lead', dir: 'up', status: 'IN_MEETING' },
-      { id: 'sec_6', x: 69.8, y: 86.9, dept: 'secops', title: 'QA Audit Lead', defaultTool: 'dod_verify', toolSummary: 'Definition of Done Verification', dir: 'up', status: 'IN_MEETING' },
-      { id: 'sec_7', x: 66.9, y: 79.6, dept: 'secops', title: 'Code Validator', defaultTool: 'lint_check', toolSummary: 'Syntax, TypeCheck & Linter Enforcement', dir: 'right', status: 'IN_MEETING' },
-      { id: 'sec_8', x: 69.8, y: 72.8, dept: 'secops', title: 'DAG Supervisor', defaultTool: 'dag_watch', toolSummary: 'Subagent Lifecycle & Process Supervisor', dir: 'down', status: 'IN_MEETING' }
+      { id: 'sec_1', x: 79.1, y: 71.9, dept: 'secops', title: 'Security Sentinel', defaultTool: 'threat_watch', toolSummary: 'Threat Monitoring & Zero-Trust Verification', dir: 'down', status: 'IN_MEETING' },
+      { id: 'sec_2', x: 86.3, y: 74.4, dept: 'secops', title: 'Penetration Tester', defaultTool: 'vuln_probe', toolSummary: 'Attack Surface Enumeration & Fuzzing', dir: 'down', status: 'IN_MEETING' },
+      { id: 'sec_8', x: 71.9, y: 74.4, dept: 'secops', title: 'DAG Supervisor', defaultTool: 'dag_watch', toolSummary: 'Subagent Lifecycle & Process Supervisor', dir: 'down', status: 'IN_MEETING' },
+      { id: 'sec_7', x: 69.1, y: 81.6, dept: 'secops', title: 'Code Validator', defaultTool: 'lint_check', toolSummary: 'Syntax, TypeCheck & Linter Enforcement', dir: 'right', status: 'IN_MEETING' },
+      { id: 'sec_3', x: 89.1, y: 81.6, dept: 'secops', title: 'Red Team Hunter', defaultTool: 'audit_chain', toolSummary: 'Defensive Security Triage & Exploit Analysis', dir: 'left', status: 'IN_MEETING' },
+      { id: 'sec_6', x: 71.9, y: 88.9, dept: 'secops', title: 'QA Audit Lead', defaultTool: 'dod_verify', toolSummary: 'Definition of Done Verification', dir: 'up', status: 'IN_MEETING' },
+      { id: 'sec_5', x: 79.1, y: 91.4, dept: 'secops', title: 'Incident Commander', defaultTool: 'war_room', toolSummary: 'Incident Triage & War Room Lead', dir: 'up', status: 'IN_MEETING' },
+      { id: 'sec_4', x: 86.3, y: 88.9, dept: 'secops', title: 'Compliance Guard', defaultTool: 'cred_check', toolSummary: 'Zero-Leak & DPAPI Enforcer', dir: 'up', status: 'IN_MEETING' }
     ];
 
-    function getPixelCharacterSvg(deptKey, deskStatus, isParent, dir = 'down', charIdx = 0) {
-      let hairTop = '#1e293b', hairMain = '#0f172a';
-      let skinColor = '#f5c697';
-      let suitColor = '#1e3a8a';
-      let pantsColor = '#1e293b';
-      let chairBack = '#18181f';
-      let chairRim = '#2e2e3d';
-      let extraHead = '';
-      let extraChest = '';
-      let typingClass = deskStatus === 'WORKING' ? 'class="pixel-hands-typing"' : '';
+    // --- HIGH-PERFORMANCE HTML5 CANVAS PIXEL OFFICE ENGINE ---
+    let pixelOfficeCanvas = null;
+    let pixelOfficeCtx = null;
+    let pixelOfficeAnimationId = null;
+    let pixelOfficeFrame = 0;
+    let pixelOfficeStations = [];
+    let pixelOfficeHoverIdx = -1;
+    let activeZoneFilter = 'all';
 
-      if (deptKey === 'executive') {
-        hairTop = charIdx % 2 === 0 ? '#475569' : '#1e293b';
-        hairMain = charIdx % 2 === 0 ? '#334155' : '#0f172a';
-        suitColor = '#1d4ed8';
-        extraChest = '<rect x="7.5" y="6.5" width="1" height="3" fill="#ef4444"/>';
-      } else if (deptKey === 'engineering') {
-        hairTop = charIdx % 3 === 0 ? '#7c3aed' : (charIdx % 3 === 1 ? '#d97706' : '#2563eb');
-        hairMain = charIdx % 3 === 0 ? '#6d28d9' : (charIdx % 3 === 1 ? '#b45309' : '#1d4ed8');
-        suitColor = charIdx % 2 === 0 ? '#6d28d9' : '#2563eb';
-        extraHead = `
-          <rect x="2.5" y="2" width="1.5" height="3.5" fill="#38bdf8"/>
-          <rect x="12" y="2" width="1.5" height="3.5" fill="#38bdf8"/>
-          <rect x="3.5" y="0.5" width="9" height="1" fill="#0284c7"/>
-        `;
-        extraChest = `
-          <rect x="6.5" y="7" width="1" height="2" fill="#38bdf8"/>
-          <rect x="8.5" y="7" width="1" height="2" fill="#38bdf8"/>
-        `;
-      } else if (deptKey === 'intelligence') {
-        hairTop = charIdx % 2 === 0 ? '#047857' : '#475569';
-        hairMain = charIdx % 2 === 0 ? '#065f46' : '#334155';
-        suitColor = '#059669';
-        extraHead = `
-          <rect x="4.5" y="3.5" width="3" height="2" fill="none" stroke="#38bdf8" stroke-width="0.8"/>
-          <rect x="8.5" y="3.5" width="3" height="2" fill="none" stroke="#38bdf8" stroke-width="0.8"/>
-          <line x1="7.5" y1="4.5" x2="8.5" y2="4.5" stroke="#38bdf8" stroke-width="0.8"/>
-        `;
-        extraChest = `
-          <rect x="6" y="6" width="4" height="3.5" fill="#fef08a"/>
-          <rect x="9" y="7" width="1" height="1.5" fill="#fbbf24"/>
-        `;
-      } else if (deptKey === 'secops') {
-        hairTop = '#18181b';
-        hairMain = '#27272a';
-        suitColor = '#27272a';
-        extraHead = `
-          <rect x="2.5" y="2.5" width="1.5" height="2" fill="#eab308"/>
-          <rect x="3.5" y="4.5" width="2" height="1" fill="#eab308"/>
-        `;
-        extraChest = `
-          <rect x="6" y="6" width="4" height="4" fill="#d97706"/>
-          <rect x="8.5" y="7" width="1.5" height="1.5" fill="#fbbf24"/>
-        `;
-      }
+    // Preload Office Floor Background
+    const officeBgImg = new Image();
+    let officeBgLoaded = false;
+    officeBgImg.onload = () => { officeBgLoaded = true; };
+    officeBgImg.src = '/assets/office_floor_pixel.png';
 
-      // 1. DIRECTION: UP (Facing North / Desk & Monitors from behind)
-      if (dir === 'up') {
-        return `
-          <svg width="28" height="26" viewBox="0 0 16 14" class="block overflow-visible select-none" shape-rendering="crispEdges">
-            <!-- Ergonomic Chair High-Backrest (Behind) -->
-            <rect x="2" y="3.5" width="12" height="8" rx="1" fill="${chairBack}" stroke="${chairRim}" stroke-width="0.7"/>
-            <rect x="1" y="5.5" width="1.5" height="4.5" fill="${chairRim}"/>
-            <rect x="13.5" y="5.5" width="1.5" height="4.5" fill="${chairRim}"/>
+    // Clean Role Map for Badges
+    const ROLE_BADGE_MAP = {
+      'Frontend Engineer': 'Frontend Dev',
+      'Backend Core Dev': 'Backend Dev',
+      'Systems Refactorer': 'Refactorer',
+      'DevOps & SRE': 'DevOps SRE',
+      'Fullstack Engineer': 'Fullstack',
+      'Algorithm Specialist': 'Algorithms',
+      'Lead Architect': 'Lead Arch',
+      'Release Automator': 'Release Auto',
+      'Model Evaluator': 'Model Eval',
+      'Knowledge Miner': 'Knowledge',
+      'Server Infra SRE': 'Infra SRE',
+      'Data Pipeline Analyst': 'Data Pipeline',
+      'Lead Orchestrator (Root)': 'Root Orchestrator',
+      'Strategic Advisor': 'Strategy Lead',
+      'Chief Systems Architect': 'Chief Arch',
+      'Research Fellow': 'Researcher',
+      'Docs Archivist': 'Docs Archivist',
+      'Espresso Standby Agent': 'Espresso',
+      'Standby Developer': 'Standby Dev',
+      'Standby Sentinel': 'Sentinel',
+      'Security Sentinel': 'SecOps Sentinel',
+      'Penetration Tester': 'Pentester',
+      'Red Team Hunter': 'Red Team',
+      'Compliance Guard': 'Compliance',
+      'Incident Commander': 'Incident Lead',
+      'QA Audit Lead': 'QA Lead',
+      'Code Validator': 'Code Validator',
+      'DAG Supervisor': 'DAG Supervisor'
+    };
 
-            <!-- Back of Head & Hair (No face - facing monitor) -->
-            <rect x="4" y="0.5" width="8" height="5.5" fill="${hairTop}"/>
-            <rect x="3.5" y="1.5" width="9" height="4" fill="${hairMain}"/>
-            ${deptKey === 'engineering' ? `
-              <!-- Headphones from behind -->
-              <rect x="2.5" y="1.8" width="1.5" height="3" fill="#38bdf8"/>
-              <rect x="12" y="1.8" width="1.5" height="3" fill="#38bdf8"/>
-              <rect x="3.5" y="0.5" width="9" height="1" fill="#0284c7"/>
-            ` : ''}
+    function getFormattedRole(rawRole) {
+      if (!rawRole) return 'Staff Agent';
+      if (ROLE_BADGE_MAP[rawRole]) return ROLE_BADGE_MAP[rawRole];
+      return rawRole.replace(' (Root)', '').replace(' Engineer', ' Dev');
+    }
 
-            <!-- Back of Torso & Shoulders -->
-            <rect x="4" y="5.5" width="8" height="5" fill="${suitColor}"/>
-            <rect x="7.5" y="6" width="1" height="4" fill="rgba(0,0,0,0.25)"/>
+    // --- CANVAS PIXEL ART RENDERING ROUTINES ---
 
-            <!-- Arms Reaching North onto Keyboard / Desk with Typing Animation -->
-            <g ${typingClass}>
-              <rect x="2.5" y="3.5" width="2" height="4.5" fill="${suitColor}"/>
-              <rect x="2.5" y="1.5" width="2" height="2" fill="${skinColor}"/>
+    function drawChair(ctx, px, py, dir, dept, isPrimary) {
+      ctx.save();
+      const chairBack = isPrimary ? '#1e1b18' : (dept === 'secops' ? '#141419' : '#181824');
+      const chairTrim = isPrimary ? '#d97706' : (dept === 'engineering' ? '#4338ca' : (dept === 'secops' ? '#3b82f6' : '#27273a'));
 
-              <rect x="11.5" y="3.5" width="2" height="4.5" fill="${suitColor}"/>
-              <rect x="11.5" y="1.5" width="2" height="2" fill="${skinColor}"/>
-              
-              <!-- Keyboard keys glow in front of hands -->
-              <rect x="4.5" y="1" width="7" height="1.5" fill="#334155"/>
-              <rect x="5.5" y="1.2" width="1" height="0.8" fill="#38bdf8"/>
-              <rect x="7.5" y="1.2" width="1" height="0.8" fill="#38bdf8"/>
-              <rect x="9.5" y="1.2" width="1" height="0.8" fill="#38bdf8"/>
-            </g>
-
-            <!-- Seated Thighs on Chair Cushion (No dangling standing feet!) -->
-            <rect x="4" y="10.5" width="8" height="2" fill="${pantsColor}"/>
-          </svg>
-        `;
-      }
-
-      // 2. DIRECTION: DOWN (Facing South / Table & Camera from front)
       if (dir === 'down') {
-        return `
-          <svg width="28" height="26" viewBox="0 0 16 14" class="block overflow-visible select-none" shape-rendering="crispEdges">
-            <!-- Chair Backrest peek behind shoulders -->
-            <rect x="2.5" y="2" width="11" height="7" rx="1" fill="${chairBack}" stroke="${chairRim}" stroke-width="0.7"/>
-            <rect x="1.5" y="4.5" width="1.5" height="4" fill="${chairRim}"/>
-            <rect x="13" y="4.5" width="1.5" height="4" fill="${chairRim}"/>
+        // High backrest behind shoulders
+        ctx.fillStyle = chairBack;
+        ctx.fillRect(px - 9, py - 9, 18, 10);
+        ctx.fillStyle = chairTrim;
+        ctx.fillRect(px - 10, py - 9, 1, 10);
+        ctx.fillRect(px + 9, py - 9, 1, 10);
+        ctx.fillRect(px - 9, py - 10, 18, 1);
+        // Armrests
+        ctx.fillStyle = '#222230';
+        ctx.fillRect(px - 11, py - 3, 2, 8);
+        ctx.fillRect(px + 9, py - 3, 2, 8);
+      } else if (dir === 'up') {
+        // Backrest viewed from behind
+        ctx.fillStyle = chairBack;
+        ctx.fillRect(px - 8, py - 2, 16, 11);
+        ctx.fillStyle = chairTrim;
+        ctx.fillRect(px - 8, py + 8, 16, 2);
+        // Swivel stem & wheels
+        ctx.fillStyle = '#0f0f15';
+        ctx.fillRect(px - 1, py + 9, 2, 4);
+        ctx.fillStyle = '#27273a';
+        ctx.fillRect(px - 6, py + 12, 12, 2);
+      } else if (dir === 'right') {
+        // Chair back on the left
+        ctx.fillStyle = chairBack;
+        ctx.fillRect(px - 10, py - 8, 3, 14);
+        ctx.fillStyle = chairTrim;
+        ctx.fillRect(px - 11, py - 8, 1, 14);
+        // Seat cushion
+        ctx.fillStyle = '#222230';
+        ctx.fillRect(px - 7, py + 2, 10, 3);
+      } else if (dir === 'left') {
+        // Chair back on the right
+        ctx.fillStyle = chairBack;
+        ctx.fillRect(px + 7, py - 8, 3, 14);
+        ctx.fillStyle = chairTrim;
+        ctx.fillRect(px + 10, py - 8, 1, 14);
+        // Seat cushion
+        ctx.fillStyle = '#222230';
+        ctx.fillRect(px - 3, py + 2, 10, 3);
+      }
+      ctx.restore();
+    }
 
-            <!-- Head & Hair Base -->
-            <rect x="4" y="0.5" width="8" height="4.5" fill="${hairTop}"/>
-            <rect x="3.5" y="1.5" width="9" height="3" fill="${hairMain}"/>
-            <rect x="4" y="2" width="8" height="4" fill="${skinColor}"/>
+    function drawPixelCharacter(ctx, px, py, dir, dept, status, isParent, frame, isHovered, sIdx) {
+      ctx.save();
 
-            <!-- Eyes & Face -->
-            <rect x="5.5" y="3" width="1.5" height="1.5" fill="#0f172a"/>
-            <rect x="9" y="3" width="1.5" height="1.5" fill="#0f172a"/>
-            <rect x="4" y="1.5" width="8" height="1" fill="${hairTop}"/>
-            ${extraHead}
+      // Department Suit & Hair Palettes
+      let suitColor = '#1e3a8a';
+      let hairColor = '#0f172a';
+      let skinColor = sIdx % 2 === 0 ? '#f5c697' : '#e0a97d';
+      let pantsColor = '#1e293b';
 
-            <!-- Torso / Chest -->
-            <rect x="4" y="5.5" width="8" height="5" fill="${suitColor}"/>
-            ${extraChest}
-
-            <!-- Arms & Hands Resting Forward on Table/Laptop Edge -->
-            <g ${typingClass}>
-              <rect x="2.5" y="6" width="2" height="4" fill="${suitColor}"/>
-              <rect x="2.5" y="9" width="2" height="1.8" fill="${skinColor}"/>
-
-              <rect x="11.5" y="6" width="2" height="4" fill="${suitColor}"/>
-              <rect x="11.5" y="9" width="2" height="1.8" fill="${skinColor}"/>
-              
-              <!-- Laptop / Desk Blotter Edge in front -->
-              <rect x="4.5" y="9.5" width="7" height="1.8" fill="#1e293b"/>
-              <rect x="5.5" y="9.8" width="5" height="1" fill="#38bdf8" opacity="0.85"/>
-            </g>
-
-            <!-- Seated Thighs on Chair Cushion (No dangling standing legs!) -->
-            <rect x="4.5" y="10.5" width="7" height="2" fill="${pantsColor}"/>
-          </svg>
-        `;
+      if (dept === 'executive') {
+        suitColor = '#1d4ed8';
+        hairColor = sIdx % 2 === 0 ? '#475569' : '#1e293b';
+      } else if (dept === 'engineering') {
+        suitColor = sIdx % 2 === 0 ? '#6d28d9' : '#2563eb';
+        hairColor = sIdx % 3 === 0 ? '#b45309' : (sIdx % 3 === 1 ? '#d97706' : '#1e1b4b');
+      } else if (dept === 'intelligence') {
+        suitColor = '#059669';
+        hairColor = sIdx % 2 === 0 ? '#065f46' : '#334155';
+      } else if (dept === 'secops') {
+        suitColor = '#27272a';
+        hairColor = '#18181b';
+      } else if (dept === 'cafe') {
+        suitColor = '#c2410c';
+        hairColor = '#78350f';
       }
 
-      // 3. DIRECTION: RIGHT (Facing East / Desk to Right)
-      if (dir === 'right') {
-        return `
-          <svg width="28" height="26" viewBox="0 0 16 14" class="block overflow-visible select-none" shape-rendering="crispEdges">
-            <!-- Chair Backrest on the Left -->
-            <rect x="1.5" y="2.5" width="3" height="9" fill="${chairBack}" stroke="${chairRim}" stroke-width="0.7"/>
-            <rect x="1.5" y="10" width="8" height="2" fill="${chairRim}"/>
+      // Breathing idle offset (when not actively typing)
+      const isWorking = (status === 'WORKING');
+      const breathOffset = (!isWorking && (frame % 60 < 30)) ? 1 : 0;
+      const typeLeft = (isWorking && Math.sin(frame * 0.4) > 0) ? -1 : 0;
+      const typeRight = (isWorking && Math.sin(frame * 0.4 + Math.PI) > 0) ? -1 : 0;
 
-            <!-- Head Profile (Looking Right) -->
-            <rect x="4" y="1" width="6" height="5" fill="${hairTop}"/>
-            <rect x="6" y="2" width="5" height="4" fill="${skinColor}"/>
-            <rect x="9.5" y="3" width="1.5" height="1.5" fill="#0f172a"/>
-            <rect x="5" y="1" width="5" height="1.5" fill="${hairTop}"/>
+      // 1. DIRECTION: DOWN (Facing South / Camera)
+      if (dir === 'down') {
+        // Head & Hair
+        ctx.fillStyle = hairColor;
+        ctx.fillRect(px - 5, py - 12 + breathOffset, 10, 5);
+        ctx.fillRect(px - 6, py - 10 + breathOffset, 12, 3);
+        // Face
+        ctx.fillStyle = skinColor;
+        ctx.fillRect(px - 4, py - 8 + breathOffset, 8, 5);
+        // Eyes (Blinking animation every ~160 frames)
+        const isBlinking = (frame % 160 > 154);
+        ctx.fillStyle = '#0f172a';
+        if (isBlinking) {
+          ctx.fillRect(px - 3, py - 6 + breathOffset, 2, 1);
+          ctx.fillRect(px + 1, py - 6 + breathOffset, 2, 1);
+        } else {
+          ctx.fillRect(px - 3, py - 6 + breathOffset, 2, 2);
+          ctx.fillRect(px + 1, py - 6 + breathOffset, 2, 2);
+        }
+        // Accessories
+        if (dept === 'intelligence') {
+          // Wireframe glasses
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px - 3.5, py - 6.5 + breathOffset, 3, 2.5);
+          ctx.strokeRect(px + 0.5, py - 6.5 + breathOffset, 3, 2.5);
+        } else if (dept === 'secops') {
+          // Cyber headset earpiece
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillRect(px - 6, py - 8 + breathOffset, 2, 3);
+          ctx.fillRect(px - 5, py - 5 + breathOffset, 2, 1);
+        }
+        // Torso / Suit
+        ctx.fillStyle = suitColor;
+        ctx.fillRect(px - 5, py - 3 + breathOffset, 10, 6);
+        if (dept === 'executive') {
+          // White shirt collar + Crimson tie
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(px - 2, py - 3 + breathOffset, 4, 2);
+          ctx.fillStyle = '#ef4444';
+          ctx.fillRect(px - 0.5, py - 2 + breathOffset, 1, 4);
+        } else if (dept === 'secops') {
+          // Tactical amber ID badge
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillRect(px - 2, py - 1 + breathOffset, 4, 3);
+        }
+        // Arms & Hands reaching forward on desk/laptop edge
+        ctx.fillStyle = suitColor;
+        ctx.fillRect(px - 7, py - 2 + breathOffset, 2, 4);
+        ctx.fillRect(px + 5, py - 2 + breathOffset, 2, 4);
+        ctx.fillStyle = skinColor;
+        ctx.fillRect(px - 7, py + 2 + typeLeft, 3, 2);
+        ctx.fillRect(px + 4, py + 2 + typeRight, 3, 2);
 
-            <!-- Torso (Profile) -->
-            <rect x="4.5" y="6" width="6" height="4.5" fill="${suitColor}"/>
-
-            <!-- Arms & Hands Reaching Right onto Desk -->
-            <g ${typingClass}>
-              <rect x="6.5" y="7" width="5" height="2" fill="${suitColor}"/>
-              <rect x="11.5" y="7" width="2" height="1.8" fill="${skinColor}"/>
-            </g>
-
-            <!-- Seated Bent Thigh pointing right on cushion -->
-            <rect x="4.5" y="10" width="7" height="2.5" fill="${pantsColor}"/>
-          </svg>
-        `;
+        // Seated thighs on cushion
+        ctx.fillStyle = pantsColor;
+        ctx.fillRect(px - 5, py + 3, 10, 3);
       }
 
-      // 4. DIRECTION: LEFT (Facing West / Desk to Left)
-      return `
-        <svg width="28" height="26" viewBox="0 0 16 14" class="block overflow-visible select-none" shape-rendering="crispEdges">
-          <!-- Chair Backrest on the Right -->
-          <rect x="11.5" y="2.5" width="3" height="9" fill="${chairBack}" stroke="${chairRim}" stroke-width="0.7"/>
-          <rect x="6.5" y="10" width="8" height="2" fill="${chairRim}"/>
+      // 2. DIRECTION: UP (Facing North / Workstation Monitors)
+      else if (dir === 'up') {
+        // Back of Head & Hair
+        ctx.fillStyle = hairColor;
+        ctx.fillRect(px - 5, py - 13 + breathOffset, 10, 6);
+        ctx.fillRect(px - 6, py - 11 + breathOffset, 12, 4);
 
-          <!-- Head Profile (Looking Left) -->
-          <rect x="6" y="1" width="6" height="5" fill="${hairTop}"/>
-          <rect x="5" y="2" width="5" height="4" fill="${skinColor}"/>
-          <rect x="5" y="3" width="1.5" height="1.5" fill="#0f172a"/>
-          <rect x="6" y="1" width="5" height="1.5" fill="${hairTop}"/>
+        if (dept === 'engineering') {
+          // Studio headphones from behind
+          ctx.fillStyle = '#0284c7';
+          ctx.fillRect(px - 5, py - 14 + breathOffset, 10, 1.5);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(px - 7, py - 12 + breathOffset, 2, 4);
+          ctx.fillRect(px + 5, py - 12 + breathOffset, 2, 4);
+        }
 
-          <!-- Torso (Profile) -->
-          <rect x="5.5" y="6" width="6" height="4.5" fill="${suitColor}"/>
+        // Back of Torso
+        ctx.fillStyle = suitColor;
+        ctx.fillRect(px - 5, py - 7 + breathOffset, 10, 7);
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(px - 0.5, py - 6 + breathOffset, 1, 5);
 
-          <!-- Arms & Hands Reaching Left onto Desk -->
-          <g ${typingClass}>
-            <rect x="4.5" y="7" width="5" height="2" fill="${suitColor}"/>
-            <rect x="2.5" y="7" width="2" height="1.8" fill="${skinColor}"/>
-          </g>
+        // Arms reaching North onto Keyboard
+        ctx.fillStyle = suitColor;
+        ctx.fillRect(px - 7, py - 9 + breathOffset, 2, 5);
+        ctx.fillRect(px + 5, py - 9 + breathOffset, 2, 5);
+        ctx.fillStyle = skinColor;
+        ctx.fillRect(px - 6, py - 11 + typeLeft, 2, 2);
+        ctx.fillRect(px + 4, py - 11 + typeRight, 2, 2);
 
-          <!-- Seated Bent Thigh pointing left on cushion -->
-          <rect x="4.5" y="10" width="7" height="2.5" fill="${pantsColor}"/>
-        </svg>
+        // Seated cushion
+        ctx.fillStyle = pantsColor;
+        ctx.fillRect(px - 5, py, 10, 3);
+      }
+
+      // 3. DIRECTION: RIGHT (Profile facing East)
+      else if (dir === 'right') {
+        // Head Profile
+        ctx.fillStyle = hairColor;
+        ctx.fillRect(px - 4, py - 12 + breathOffset, 7, 5);
+        ctx.fillStyle = skinColor;
+        ctx.fillRect(px - 2, py - 8 + breathOffset, 6, 5);
+        // Eye
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(px + 2, py - 6 + breathOffset, 2, 2);
+        // Torso
+        ctx.fillStyle = suitColor;
+        ctx.fillRect(px - 4, py - 3 + breathOffset, 8, 6);
+        // Arm & Hand reaching right onto desk
+        ctx.fillRect(px - 1, py - 1 + breathOffset, 5, 2.5);
+        ctx.fillStyle = skinColor;
+        ctx.fillRect(px + 4 + typeRight, py - 1, 3, 2);
+        // Seated thigh pointing right
+        ctx.fillStyle = pantsColor;
+        ctx.fillRect(px - 4, py + 3, 8, 3);
+      }
+
+      // 4. DIRECTION: LEFT (Profile facing West)
+      else if (dir === 'left') {
+        // Head Profile
+        ctx.fillStyle = hairColor;
+        ctx.fillRect(px - 3, py - 12 + breathOffset, 7, 5);
+        ctx.fillStyle = skinColor;
+        ctx.fillRect(px - 4, py - 8 + breathOffset, 6, 5);
+        // Eye
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(px - 4, py - 6 + breathOffset, 2, 2);
+        // Torso
+        ctx.fillStyle = suitColor;
+        ctx.fillRect(px - 4, py - 3 + breathOffset, 8, 6);
+        // Arm & Hand reaching left onto desk
+        ctx.fillRect(px - 4, py - 1 + breathOffset, 5, 2.5);
+        ctx.fillStyle = skinColor;
+        ctx.fillRect(px - 7 + typeLeft, py - 1, 3, 2);
+        // Seated thigh pointing left
+        ctx.fillStyle = pantsColor;
+        ctx.fillRect(px - 4, py + 3, 8, 3);
+      }
+
+      ctx.restore();
+    }
+
+    // --- FOREGROUND DESK OCCLUSION & EQUIPMENT (THE AUTHENTIC SANDWICH LAYER) ---
+
+    function drawDeskForeground(ctx, px, py, dir, dept, slotId, frame) {
+      if (!officeBgLoaded) return;
+      ctx.save();
+
+      // 1. Executive Mahogany Desk Occlusion (exec_1)
+      if (slotId === 'exec_1') {
+        // Sliced directly from officeBgImg for 100% pixel-perfect seamlessness
+        ctx.drawImage(officeBgImg, 156, 804, 112, 66, 156, 804, 112, 66);
+
+        // Glowing ultra-thin executive laptop on top of the desk
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(px - 9, py + 12, 18, 7);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(px - 8, py + 12, 16, 5);
+      }
+
+      // 2. War Room Octagon Conference Table Occlusion (Top chairs: sec_1, sec_2, sec_8)
+      else if (dept === 'secops' && dir === 'down') {
+        // Authentic upper half of conference table sliced from officeBgImg
+        ctx.drawImage(officeBgImg, 725, 754, 170, 96, 725, 754, 170, 96);
+      }
+
+      // 3. Cafeteria Dining Tables Occlusion (cafe_2, cafe_3)
+      else if (dept === 'cafe' && dir === 'down') {
+        if (slotId === 'cafe_2') ctx.drawImage(officeBgImg, 735, 540, 45, 24, 735, 540, 45, 24);
+        if (slotId === 'cafe_3') ctx.drawImage(officeBgImg, 865, 540, 45, 24, 865, 540, 45, 24);
+      }
+
+      ctx.restore();
+    }
+
+    // --- MONITORS & WORKSTATIONS (FOR DIR === 'UP') ---
+
+    function drawMonitorsAndScreens(ctx, px, py, dir, dept, status, frame) {
+      // In office_floor_pixel.png, monitors are at py - 24 to py - 14.
+      // We animate live scrolling syntax-highlighted code pixels directly inside the monitors!
+      ctx.save();
+      const codeColors = (dept === 'intelligence')
+        ? ['#10b981', '#34d399', '#6ee7b7', '#059669']
+        : ['#38bdf8', '#818cf8', '#a78bfa', '#c084fc'];
+      const scrollY = Math.floor((frame * 0.4) % 3);
+
+      for (let line = 0; line < 3; line++) {
+        const lineY = py - 23 + (line * 3) + scrollY;
+        if (lineY <= py - 16) {
+          ctx.fillStyle = codeColors[(line + Math.floor(frame / 20)) % codeColors.length];
+          const lineWidth = 7 + ((line * 3 + sIdxHash(px, py)) % 8);
+          ctx.fillRect(px - 7, lineY, lineWidth, 1.5);
+        }
+      }
+
+      // Blinking terminal cursor
+      if (frame % 40 < 20) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(px + 3, py - 17, 1.5, 2);
+      }
+
+      // Monitor ambient glow on keyboard if working
+      if (status === 'WORKING') {
+        const glowColor = (dept === 'intelligence') ? 'rgba(16, 185, 129, 0.22)' : 'rgba(56, 189, 248, 0.22)';
+        ctx.fillStyle = glowColor;
+        ctx.fillRect(px - 14, py - 14, 28, 4);
+      }
+      ctx.restore();
+    }
+
+    function sIdxHash(px, py) {
+      return Math.abs(Math.sin(px * 12.9898 + py * 78.233) * 43758.5453) % 10;
+    }
+
+    // --- LIVING WORLD ENVIRONMENTAL EFFECTS ---
+
+    function drawEnvironmentEffects(ctx, frame) {
+      ctx.save();
+
+      // 1. Data Science Lab Server Racks (px: 60..150, py: 320..360)
+      for (let r = 0; r < 2; r++) {
+        const rx = 55 + (r * 70);
+        const ry = 325;
+        // Server Rack Cabinet
+        ctx.fillStyle = '#0a0a10';
+        ctx.fillRect(rx, ry, 26, 32);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(rx + 1, ry + 1, 24, 30);
+        // Blinking LED columns
+        for (let unit = 0; unit < 4; unit++) {
+          const uy = ry + 3 + (unit * 7);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(rx + 3, uy, 20, 5);
+          // Green / Cyan / Amber status LEDs
+          const led1 = ((frame + r * 11 + unit * 7) % 18 < 9);
+          const led2 = ((frame + r * 7 + unit * 13) % 24 < 12);
+          ctx.fillStyle = led1 ? '#10b981' : '#047857';
+          ctx.fillRect(rx + 5, uy + 1.5, 2, 2);
+          ctx.fillStyle = led2 ? '#38bdf8' : '#0369a1';
+          ctx.fillRect(rx + 9, uy + 1.5, 2, 2);
+          ctx.fillStyle = (frame % 30 < 15) ? '#f59e0b' : '#78350f';
+          ctx.fillRect(rx + 13, uy + 1.5, 2, 2);
+        }
+      }
+
+      // 2. Cafeteria Espresso Machine (px: 834, py: 470)
+      const ex = 830, ey = 460;
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(ex, ey, 14, 12);
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(ex + 1, ey + 1, 12, 10);
+      // Rising Coffee Steam Wisps
+      for (let s = 0; s < 3; s++) {
+        const steamProgress = ((frame + s * 15) % 45) / 45;
+        const sy = ey - (steamProgress * 14);
+        const sx = ex + 6 + Math.sin(steamProgress * Math.PI * 2) * 2;
+        const alpha = Math.max(0, 1 - steamProgress);
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
+        ctx.fillRect(sx, sy, 1.5, 1.5);
+      }
+
+      // 3. War Room Tactical Center Hologram (px: 785, py: 815)
+      const hx = 785, hy = 815;
+      const holoPulse = 0.2 + 0.1 * Math.sin(frame * 0.08);
+      ctx.strokeStyle = `rgba(56, 189, 248, ${holoPulse})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 16, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(hx, hy, 8, 0, Math.PI * 2);
+      ctx.stroke();
+      // Rotating tactical radar line
+      const rad = (frame * 0.04) % (Math.PI * 2);
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(hx + Math.cos(rad) * 16, hy + Math.sin(rad) * 16);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // --- FLOATING ROLE BADGE & STATUS PILL ---
+
+    function drawFloatingBadge(ctx, px, py, staff, slot, isHovered, frame) {
+      ctx.save();
+      const rawTitle = staff.role || slot.title || 'Staff Agent';
+      const roleText = getFormattedRole(rawTitle);
+
+      // Status Dot Color
+      let dotColor = '#10b981';
+      if (staff.desk_status === 'IN_MEETING') dotColor = '#f59e0b';
+      else if (staff.desk_status === 'STANDBY') dotColor = '#94a3b8';
+      else if (staff.desk_status === 'BLOCKED') dotColor = '#ef4444';
+
+      // Badge Border Color per Dept
+      let borderColor = 'rgba(255,255,255,0.12)';
+      if (slot.dept === 'executive') borderColor = 'rgba(59, 130, 246, 0.4)';
+      else if (slot.dept === 'engineering') borderColor = 'rgba(168, 85, 247, 0.4)';
+      else if (slot.dept === 'intelligence') borderColor = 'rgba(16, 185, 129, 0.4)';
+      else if (slot.dept === 'secops') borderColor = 'rgba(245, 158, 11, 0.4)';
+
+      ctx.font = '600 8.5px "JetBrains Mono", Consolas, monospace';
+      const textWidth = ctx.measureText(roleText).width;
+      const badgeW = textWidth + 16;
+      const badgeH = 14;
+      const badgeX = px - (badgeW / 2);
+      const badgeY = py - 26;
+
+      // Badge Background Pill
+      ctx.fillStyle = isHovered ? 'rgba(18, 18, 28, 0.95)' : 'rgba(10, 10, 15, 0.88)';
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+      ctx.fill();
+
+      // Badge Border
+      ctx.strokeStyle = isHovered ? '#38bdf8' : borderColor;
+      ctx.lineWidth = isHovered ? 1.5 : 1;
+      ctx.stroke();
+
+      // Pulsing Status Dot
+      const pulseSize = (staff.desk_status === 'WORKING') ? (1.5 + 0.5 * Math.sin(frame * 0.2)) : 1.5;
+      ctx.fillStyle = dotColor;
+      ctx.beginPath();
+      ctx.arc(badgeX + 6, badgeY + (badgeH / 2), pulseSize, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Role Text
+      ctx.fillStyle = isHovered ? '#ffffff' : '#e2e8f0';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(roleText, badgeX + 11, badgeY + (badgeH / 2) + 0.5);
+
+      ctx.restore();
+    }
+
+    function drawHoverReticle(ctx, px, py, dir) {
+      ctx.save();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      const rw = 22, rh = 20;
+      const rx = px - rw / 2;
+      const ry = py - 12;
+
+      // 4 Corner Brackets
+      const len = 4;
+      // Top-Left
+      ctx.beginPath();
+      ctx.moveTo(rx, ry + len); ctx.lineTo(rx, ry); ctx.lineTo(rx + len, ry);
+      ctx.stroke();
+      // Top-Right
+      ctx.beginPath();
+      ctx.moveTo(rx + rw - len, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + len);
+      ctx.stroke();
+      // Bottom-Left
+      ctx.beginPath();
+      ctx.moveTo(rx, ry + rh - len); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx + len, ry + rh);
+      ctx.stroke();
+      // Bottom-Right
+      ctx.beginPath();
+      ctx.moveTo(rx + rw - len, ry + rh); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw, ry + rh - len);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // --- CANVAS ENGINE CONTROLLER & MAIN LOOP ---
+
+    function initPixelCanvasEngine() {
+      pixelOfficeCanvas = document.getElementById('pixel-office-canvas');
+      if (!pixelOfficeCanvas) return;
+      pixelOfficeCtx = pixelOfficeCanvas.getContext('2d');
+      pixelOfficeCtx.imageSmoothingEnabled = false;
+
+      if (!pixelOfficeCanvas.__engineInitialized) {
+        pixelOfficeCanvas.__engineInitialized = true;
+
+        // Pointer Move -> Hover & HUD Detection
+        pixelOfficeCanvas.addEventListener('pointermove', (e) => {
+          const rect = pixelOfficeCanvas.getBoundingClientRect();
+          const scaleX = 1024 / rect.width;
+          const scaleY = 1024 / rect.height;
+          const mx = (e.clientX - rect.left) * scaleX;
+          const my = (e.clientY - rect.top) * scaleY;
+
+          let foundIdx = -1;
+          for (let i = 0; i < pixelOfficeStations.length; i++) {
+            const slot = pixelOfficeStations[i];
+            const px = slot.x * 1024 / 100;
+            const py = slot.y * 1024 / 100;
+            if (Math.abs(mx - px) <= 24 && Math.abs(my - (py - 6)) <= 22) {
+              foundIdx = i;
+              break;
+            }
+          }
+
+          pixelOfficeHoverIdx = foundIdx;
+          updateCanvasTooltip(foundIdx);
+        });
+
+        // Pointer Leave -> Hide HUD
+        pixelOfficeCanvas.addEventListener('pointerleave', () => {
+          pixelOfficeHoverIdx = -1;
+          updateCanvasTooltip(-1);
+        });
+
+        // Click -> Open Employee Dossier
+        pixelOfficeCanvas.addEventListener('click', (e) => {
+          if (pixelOfficeHoverIdx !== -1) {
+            const staff = pixelOfficeStations[pixelOfficeHoverIdx].assignedStaff;
+            if (staff && staff._registryIdx !== undefined) {
+              openEmployeeDossier(staff._registryIdx);
+            }
+          }
+        });
+      }
+    }
+
+    function updateCanvasTooltip(stationIdx) {
+      const tooltip = document.getElementById('pixel-canvas-tooltip');
+      const tooltipBody = document.getElementById('pixel-canvas-tooltip-body');
+      if (!tooltip || !tooltipBody) return;
+
+      if (stationIdx === -1 || !pixelOfficeStations[stationIdx]) {
+        tooltip.style.opacity = '0';
+        return;
+      }
+
+      const slot = pixelOfficeStations[stationIdx];
+      const staff = slot.assignedStaff;
+      if (!staff) {
+        tooltip.style.opacity = '0';
+        return;
+      }
+
+      // Position Tooltip above Station in Percentage Coordinates
+      tooltip.style.left = `${slot.x}%`;
+      tooltip.style.top = `${Math.max(12, slot.y - 4)}%`;
+      tooltip.style.opacity = '1';
+
+      // Status Badge HTML
+      let statusColor = 'text-emerald-400';
+      if (staff.desk_status === 'IN_MEETING') statusColor = 'text-amber-400';
+      else if (staff.desk_status === 'STANDBY') statusColor = 'text-gray-400';
+      else if (staff.desk_status === 'BLOCKED') statusColor = 'text-red-400';
+
+      tooltipBody.innerHTML = `
+        <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-hairline/60">
+          <span class="font-semibold text-white truncate max-w-[140px] text-[11px]">${escapeHtml(staff.role || slot.title)}</span>
+          <span class="text-[9px] px-1.5 py-0.5 rounded bg-surface-3 font-mono text-gray-300 uppercase font-medium">${escapeHtml(slot.dept)}</span>
+        </div>
+        <div class="py-1.5 space-y-1 text-[9.5px] font-mono text-gray-400">
+          <div><span class="text-gray-500">Model:</span> <span class="text-gray-200">${escapeHtml(staff.model || 'inherit')}</span></div>
+          <div><span class="text-gray-500">Status:</span> <span class="${statusColor} font-semibold">${staff.desk_status_label || staff.desk_status}</span></div>
+          <div><span class="text-gray-500">Telemetry:</span> <span class="text-accent font-semibold">Step ${staff.steps_count || 1} • ${(staff.tokens_count || 0).toLocaleString()} tok</span></div>
+          ${staff.active_tool ? `<div class="text-[9px] text-accent truncate"><span class="font-bold">Tool:</span> ${escapeHtml(staff.active_tool.name)}</div>` : ''}
+        </div>
+        <div class="pt-1.5 border-t border-hairline/40 flex items-center justify-between text-[8.5px] font-mono text-accent">
+          <span class="text-gray-500 truncate max-w-[110px]">${escapeHtml(slot.title)}</span>
+          <span class="font-semibold">Click Dossier &rarr;</span>
+        </div>
       `;
     }
 
+    function renderPixelFrame() {
+      if (!pixelOfficeCtx || !pixelOfficeCanvas) return;
+      pixelOfficeFrame++;
+
+      // 1. Draw Base Office Floor Map (Detailed Architecture)
+      if (officeBgLoaded) {
+        pixelOfficeCtx.drawImage(officeBgImg, 0, 0, 1024, 1024);
+      } else {
+        // Fallback procedural dark grid
+        pixelOfficeCtx.fillStyle = '#0a0a12';
+        pixelOfficeCtx.fillRect(0, 0, 1024, 1024);
+      }
+
+      // 2. Environmental Background Animations
+      drawEnvironmentEffects(pixelOfficeCtx, pixelOfficeFrame);
+
+      // 3. Assemble All Drawables for Global Z-Sorting
+      const drawables = [];
+
+      for (let sIdx = 0; sIdx < pixelOfficeStations.length; sIdx++) {
+        const slot = pixelOfficeStations[sIdx];
+        const staff = slot.assignedStaff;
+        if (!staff) continue;
+
+        const px = Math.round(slot.x * 1024 / 100);
+        const py = Math.round(slot.y * 1024 / 100);
+        const isHovered = (pixelOfficeHoverIdx === sIdx);
+
+        // Zone filter dimming check
+        const isZoneActive = (activeZoneFilter === 'all' || slot.dept === activeZoneFilter || (activeZoneFilter === 'cafe' && slot.id.startsWith('cafe')));
+
+        // A. Character Body (Seated directly on authentic pixel art furniture)
+        drawables.push({
+          zY: py,
+          draw: () => {
+            pixelOfficeCtx.globalAlpha = isZoneActive ? 1.0 : 0.25;
+            if (isHovered) {
+              drawHoverReticle(pixelOfficeCtx, px, py, slot.dir);
+            }
+            drawPixelCharacter(pixelOfficeCtx, px, py, slot.dir, slot.dept, staff.desk_status, staff.is_parent, pixelOfficeFrame, isHovered, sIdx);
+            pixelOfficeCtx.globalAlpha = 1.0;
+          }
+        });
+
+        // B. Floating Role Badge & Status Pill (Always on top of furniture)
+        drawables.push({
+          zY: 9000 + py,
+          draw: () => {
+            pixelOfficeCtx.globalAlpha = isZoneActive ? 1.0 : 0.25;
+            drawFloatingBadge(pixelOfficeCtx, px, py, staff, slot, isHovered, pixelOfficeFrame);
+            pixelOfficeCtx.globalAlpha = 1.0;
+          }
+        });
+      }
+
+      // 4. Add Global Foreground Furniture & Desk Occlusion Slices (Z-Sorted)
+      if (officeBgLoaded) {
+        // A. Executive Mahogany Desk (occludes exec_1 seated at py=812)
+        drawables.push({
+          zY: 816,
+          draw: () => {
+            pixelOfficeCtx.drawImage(officeBgImg, 156, 819, 112, 55, 156, 819, 112, 55);
+            // Executive glowing ultra-thin laptop on green desk blotter
+            pixelOfficeCtx.fillStyle = '#475569';
+            pixelOfficeCtx.fillRect(203, 830, 18, 7);
+            pixelOfficeCtx.fillStyle = '#38bdf8';
+            pixelOfficeCtx.fillRect(204, 830, 16, 5);
+          }
+        });
+
+        // B. War Room Conference Table Upper Half (occludes sec_1, sec_2, sec_8 at py=736..762)
+        drawables.push({
+          zY: 770,
+          draw: () => {
+            pixelOfficeCtx.drawImage(officeBgImg, 725, 754, 170, 96, 725, 754, 170, 96);
+          }
+        });
+      }
+
+      // 5. Sort Drawables by Z-Depth (Sandwich Occlusion)
+      drawables.sort((a, b) => a.zY - b.zY);
+
+      // 6. Execute Render Calls in Sorted Order
+      for (let i = 0; i < drawables.length; i++) {
+        drawables[i].draw();
+      }
+
+      // 7. Request Next Animation Frame
+      pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
+    }
+
     function renderPixelOffice(data) {
-      const agentsLayer = document.getElementById('pixel-agents-layer');
-      if (!agentsLayer) return;
-      agentsLayer.innerHTML = '';
+      initPixelCanvasEngine();
 
       const depts = data.departments || {};
       const parentAgent = (depts.executive && depts.executive.staff && depts.executive.staff[0]) ? depts.executive.staff[0] : null;
@@ -1774,7 +2265,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
           if (anySlot) {
             anySlot.assignedStaff = sa;
             anySlot._registryIdx = officeStaffRegistry.length;
-            officeStaffRegistry.push(sa);
+            officeStaffRegistry.push(anySlot);
           }
         }
       }
@@ -1815,112 +2306,12 @@ HTML_INTERFACE = """<!DOCTYPE html>
         }
       });
 
-      // Render DOM elements for all 28 occupied stations
-      stations.forEach((slot, sIdx) => {
-        const staff = slot.assignedStaff;
-        if (!staff) return;
+      pixelOfficeStations = stations;
 
-        const agentEl = document.createElement('div');
-        agentEl.className = 'pixel-agent';
-        agentEl.style.left = `${slot.x}%`;
-        agentEl.style.top = `${slot.y}%`;
-        agentEl.setAttribute('data-dept', slot.dept);
-        agentEl.setAttribute('tabindex', '0');
-        agentEl.onclick = (e) => {
-          e.stopPropagation();
-          openEmployeeDossier(staff._registryIdx);
-        };
-
-        // Desk monitor glow for active coding desks
-        let glowHtml = '';
-        if (staff.desk_status === 'WORKING' && !slot.id.startsWith('cafe') && !slot.id.startsWith('lib')) {
-          const glowColor = slot.dept === 'executive' ? 'rgba(59,130,246,0.6)'
-                          : (slot.dept === 'engineering' ? 'rgba(168,85,247,0.6)'
-                          : (slot.dept === 'intelligence' ? 'rgba(16,185,129,0.6)' : 'rgba(245,158,11,0.6)'));
-          glowHtml = `<div class="pixel-monitor-glow" style="background: radial-gradient(circle, ${glowColor} 0%, rgba(0,0,0,0) 70%);"></div>`;
-        }
-
-        // Role / Title Badge (User requested role/title instead of tool chip)
-        const rawTitle = staff.role || slot.title || 'Staff Agent';
-        const roleMap = {
-          'Frontend Engineer': 'Frontend Dev',
-          'Backend Core Dev': 'Backend Dev',
-          'Systems Refactorer': 'Refactorer',
-          'DevOps & SRE': 'DevOps SRE',
-          'Fullstack Engineer': 'Fullstack',
-          'Algorithm Specialist': 'Algorithms',
-          'Lead Architect': 'Lead Arch',
-          'Release Automator': 'Release Auto',
-          'Model Evaluator': 'Model Eval',
-          'Knowledge Miner': 'Knowledge',
-          'Server Infra SRE': 'Infra SRE',
-          'Data Pipeline Analyst': 'Data Pipeline',
-          'Lead Orchestrator (Root)': 'Root Orchestrator',
-          'Strategic Advisor': 'Strategy Lead',
-          'Chief Systems Architect': 'Chief Arch',
-          'Research Fellow': 'Researcher',
-          'Docs Archivist': 'Docs Archivist',
-          'Espresso Standby Agent': 'Espresso',
-          'Standby Developer': 'Standby Dev',
-          'Standby Sentinel': 'Sentinel',
-          'Security Sentinel': 'SecOps Sentinel',
-          'Penetration Tester': 'Pentester',
-          'Red Team Hunter': 'Red Team',
-          'Compliance Guard': 'Compliance',
-          'Incident Commander': 'Incident Lead',
-          'QA Audit Lead': 'QA Lead',
-          'Code Validator': 'Code Validator',
-          'DAG Supervisor': 'DAG Supervisor'
-        };
-        let displayRole = roleMap[rawTitle] || rawTitle.replace(' (Root)', '').replace(' Engineer', ' Dev');
-
-        let bubbleClass = 'working';
-        if (staff.desk_status === 'IN_MEETING') {
-          bubbleClass = 'meeting';
-        } else if (staff.desk_status === 'STANDBY') {
-          bubbleClass = 'standby';
-        } else if (staff.desk_status === 'BLOCKED') {
-          bubbleClass = 'blocked';
-        }
-
-        bubbleHtml = `
-          <div class="pixel-bubble ${bubbleClass}">
-            <span class="pixel-bubble-dot"></span>
-            <span class="truncate max-w-[100px] font-medium tracking-tight">${escapeHtml(displayRole)}</span>
-          </div>
-        `;
-
-        // Tooltip HUD on hover
-        const tooltipHtml = `
-          <div class="pixel-tooltip">
-            <div class="flex items-center justify-between gap-2 pb-1 border-b border-hairline/60">
-              <span class="font-semibold text-white truncate max-w-[130px]">${escapeHtml(staff.role || slot.title)}</span>
-              <span class="text-[9px] px-1 rounded bg-surface-3 font-mono text-gray-300 uppercase">${escapeHtml(slot.dept)}</span>
-            </div>
-            <div class="py-1 space-y-0.5 text-[9.5px] font-mono text-gray-400">
-              <div><span class="text-gray-500">Model:</span> <span class="text-gray-200">${escapeHtml(staff.model || 'inherit')}</span></div>
-              <div><span class="text-gray-500">Telemetry:</span> <span class="text-emerald-400">Step ${staff.steps_count || 1} • ${staff.desk_status}</span></div>
-              ${staff.active_tool ? `<div class="text-[9px] text-accent truncate"><span class="font-bold">Tool:</span> ${escapeHtml(staff.active_tool.name)}</div>` : ''}
-            </div>
-            <div class="pt-1 border-t border-hairline/40 flex items-center justify-between text-[8.5px] font-mono text-accent">
-              <span class="text-gray-500 truncate max-w-[100px]">${escapeHtml(slot.title)}</span>
-              <span>Click Dossier &rarr;</span>
-            </div>
-          </div>
-        `;
-
-        const spriteSvg = getPixelCharacterSvg(slot.dept, staff.desk_status, staff.is_parent, slot.dir, sIdx);
-
-        agentEl.innerHTML = `
-          ${glowHtml}
-          ${bubbleHtml}
-          ${tooltipHtml}
-          ${spriteSvg}
-          <div class="pixel-shadow"></div>
-        `;
-
-        agentsLayer.appendChild(agentEl);
-      });
+      // Start 60 FPS Render Loop if not already running
+      if (!pixelOfficeAnimationId) {
+        pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
+      }
     }
 
     function setPixelStageScale(mode) {
@@ -1928,15 +2319,22 @@ HTML_INTERFACE = """<!DOCTYPE html>
       const stage = document.getElementById('pixel-stage');
       const btnFit = document.getElementById('btn-stage-fit');
       const btn100 = document.getElementById('btn-stage-100');
+      const btn150 = document.getElementById('btn-stage-150');
       if (!stage) return;
-      if (mode === '100') {
+
+      const activeBtnClass = 'btn-spring px-2 py-0.5 rounded border border-accent/40 bg-accent/20 text-accent transition-all font-medium';
+      const inactiveBtnClass = 'btn-spring px-2 py-0.5 rounded border border-hairline bg-surface-2 hover:bg-surface-3 text-gray-400 hover:text-white transition-all';
+
+      if (btnFit) btnFit.className = (mode === 'fit') ? activeBtnClass : inactiveBtnClass;
+      if (btn100) btn100.className = (mode === '100') ? activeBtnClass : inactiveBtnClass;
+      if (btn150) btn150.className = (mode === '150') ? activeBtnClass : inactiveBtnClass;
+
+      if (mode === '150') {
+        stage.style.width = '1440px';
+      } else if (mode === '100') {
         stage.style.width = '1024px';
-        if (btn100) btn100.className = 'btn-spring px-2 py-0.5 rounded border border-accent/40 bg-accent/20 text-accent transition-all font-medium';
-        if (btnFit) btnFit.className = 'btn-spring px-2 py-0.5 rounded border border-hairline bg-surface-2 hover:bg-surface-3 text-gray-400 hover:text-white transition-all';
       } else {
         stage.style.width = '720px';
-        if (btnFit) btnFit.className = 'btn-spring px-2 py-0.5 rounded border border-accent/40 bg-accent/20 text-accent transition-all font-medium';
-        if (btn100) btn100.className = 'btn-spring px-2 py-0.5 rounded border border-hairline bg-surface-2 hover:bg-surface-3 text-gray-400 hover:text-white transition-all';
       }
     }
 
@@ -1955,17 +2353,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
     }
 
     function highlightZone(zoneKey) {
-      const agents = document.querySelectorAll('.pixel-agent');
-      agents.forEach(ag => {
-        const dept = ag.getAttribute('data-dept');
-        if (zoneKey === 'all' || dept === zoneKey) {
-          ag.style.opacity = '1';
-          ag.style.filter = 'none';
-        } else {
-          ag.style.opacity = '0.25';
-          ag.style.filter = 'grayscale(0.8)';
-        }
-      });
+      activeZoneFilter = zoneKey;
 
       const zoneBtns = ['all', 'eng', 'intel', 'exec', 'sec', 'cafe'];
       zoneBtns.forEach(zb => {
