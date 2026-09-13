@@ -1546,76 +1546,92 @@ HTML_INTERFACE = """<!DOCTYPE html>
       });
     }
 
-    function createTintedFloor(origImg, rMul, gMul, bMul) {
+    function create2ToneFloor(baseImg, cLight, cDark) {
+      if (!baseImg) return null;
       const c = document.createElement('canvas');
       c.width = 16; c.height = 16;
       const cx = c.getContext('2d');
-      cx.drawImage(origImg, 0, 0);
-      const id = cx.getImageData(0, 0, 16, 16);
-      const d = id.data;
+      cx.drawImage(baseImg, 0, 0);
+      const imgData = cx.getImageData(0, 0, 16, 16);
+      const d = imgData.data;
+
+      let minLum = 255, maxLum = 0;
       for (let i = 0; i < d.length; i += 4) {
-        d[i] = Math.min(255, d[i] * rMul);
-        d[i+1] = Math.min(255, d[i+1] * gMul);
-        d[i+2] = Math.min(255, d[i+2] * bMul);
+        const lum = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+        if (lum < minLum) minLum = lum;
+        if (lum > maxLum) maxLum = lum;
       }
-      cx.putImageData(id, 0, 0);
+      const midLum = (minLum + maxLum) / 2;
+
+      for (let i = 0; i < d.length; i += 4) {
+        const lum = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+        const color = (lum >= midLum) ? cLight : cDark;
+        d[i]   = color[0];
+        d[i+1] = color[1];
+        d[i+2] = color[2];
+        d[i+3] = 255;
+      }
+      cx.putImageData(imgData, 0, 0);
       return c;
     }
 
     function setupTintedFloors() {
-      const woodImg = PIXEL_IMAGES['assets/floors/floor_0.png'];
-      const slateImg = PIXEL_IMAGES['assets/floors/floor_1.png'];
-      if (!woodImg || !slateImg) return;
+      const f1 = PIXEL_IMAGES['assets/floors/floor_1.png'];
+      const f3 = PIXEL_IMAGES['assets/floors/floor_3.png'];
+      const f6 = PIXEL_IMAGES['assets/floors/floor_6.png'];
+      const f7 = PIXEL_IMAGES['assets/floors/floor_7.png'];
+      if (!f1 || !f3 || !f6 || !f7) return;
 
-      fMahogany = createTintedFloor(woodImg, 1.1, 0.75, 0.55);  // War Room
-      fTechBlue = createTintedFloor(woodImg, 0.55, 0.75, 1.0);  // Recon
-      fEmerald  = createTintedFloor(woodImg, 0.6, 0.95, 0.75);  // Engineering
-      fAmber    = createTintedFloor(woodImg, 1.1, 0.9, 0.65);   // Knowledge
-      fViolet   = createTintedFloor(woodImg, 0.85, 0.7, 1.0);   // QA
-      fCorridor = createTintedFloor(slateImg, 0.75, 0.8, 0.9);  // Corridor
+      fMahogany = create2ToneFloor(f6, [125, 72, 45], [78, 42, 24]);     // War Room: Real Mahogany Planks
+      fTechBlue = create2ToneFloor(f3, [34, 48, 70], [20, 28, 42]);      // Recon: Tech Slate Grid
+      fEmerald  = create2ToneFloor(f3, [28, 54, 44], [16, 34, 28]);      // Engineering: Matrix Grid
+      fAmber    = create2ToneFloor(f6, [170, 120, 72], [115, 76, 42]);   // Knowledge: Honey Oak Planks
+      fViolet   = create2ToneFloor(f3, [48, 38, 66], [28, 22, 40]);      // QA: Tactical Violet Grid
+      fCafe     = create2ToneFloor(f7, [215, 210, 200], [45, 40, 45]);   // Breakroom: High-contrast Checker
+      fCorridor = create2ToneFloor(f1, [24, 28, 38], [14, 16, 24]);      // Corridor: Dark Tech Slate
     }
 
-    // 28 Specialized Agent Workstations (Discrete 48x32 Grid, TILE_SIZE = 16px)
+    // 28 Specialized Agent Workstations with Spaced Badges (Discrete 48x32 Grid, TILE_SIZE = 16px)
     const OFFICE_STATIONS = [
       // 1. Executive Suite / War Room (3 Stations)
-      { id: 'exec_1', col: 6, row: 7, dir: 'right', dept: 'executive', title: 'Lead Orchestrator (Root)', defaultTool: 'invoke_subagent', toolSummary: 'Autonomous Primary Loop & Strategy', status: 'WORKING', isPrimary: true },
-      { id: 'exec_2', col: 10, row: 7, dir: 'left', dept: 'executive', title: 'Strategic Advisor', defaultTool: 'sync_plan', toolSummary: 'High-Level Architectural Review', status: 'IN_MEETING' },
-      { id: 'exec_3', col: 6, row: 9, dir: 'right', dept: 'executive', title: 'Chief Systems Architect', defaultTool: 'break', toolSummary: 'System Blueprinting & Roadmap', status: 'STANDBY' },
+      { id: 'exec_1', col: 6, row: 7, dir: 'right', dept: 'executive', title: 'Lead Orchestrator (Root)', defaultTool: 'invoke_subagent', toolSummary: 'Autonomous Primary Loop & Strategy', status: 'WORKING', isPrimary: true, badge_ox: -30, badge_oy: -24 },
+      { id: 'exec_2', col: 10, row: 7, dir: 'left', dept: 'executive', title: 'Strategic Advisor', defaultTool: 'sync_plan', toolSummary: 'High-Level Architectural Review', status: 'IN_MEETING', badge_ox: 30, badge_oy: -24 },
+      { id: 'exec_3', col: 6, row: 9, dir: 'right', dept: 'executive', title: 'Chief Systems Architect', defaultTool: 'break', toolSummary: 'System Blueprinting & Roadmap', status: 'STANDBY', badge_ox: -28, badge_oy: -12 },
 
       // 2. Intelligence & Recon Lab (4 Stations)
-      { id: 'lab_1', col: 19, row: 6, dir: 'up', dept: 'intelligence', title: 'Model Evaluator', defaultTool: 'eval_prompt', toolSummary: 'Prompt Perplexity & Reasoning Audit', status: 'WORKING' },
-      { id: 'lab_2', col: 25, row: 6, dir: 'up', dept: 'intelligence', title: 'Knowledge Miner', defaultTool: 'grep_search', toolSummary: 'DemusBrain Vault Indexing & MOC Sync', status: 'WORKING' },
-      { id: 'lab_3', col: 19, row: 10, dir: 'up', dept: 'intelligence', title: 'Server Infra SRE', defaultTool: 'psutil_check', toolSummary: 'Hardware Telemetry & Process Watcher', status: 'WORKING' },
-      { id: 'lab_4', col: 25, row: 10, dir: 'up', dept: 'intelligence', title: 'Data Pipeline Analyst', defaultTool: 'view_file', toolSummary: 'Telemetry & Token Flow Lineage Audit', status: 'IN_MEETING' },
+      { id: 'lab_1', col: 19, row: 6, dir: 'up', dept: 'intelligence', title: 'Model Evaluator', defaultTool: 'eval_prompt', toolSummary: 'Prompt Perplexity & Reasoning Audit', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'lab_2', col: 25, row: 6, dir: 'up', dept: 'intelligence', title: 'Knowledge Miner', defaultTool: 'grep_search', toolSummary: 'DemusBrain Vault Indexing & MOC Sync', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'lab_3', col: 19, row: 10, dir: 'up', dept: 'intelligence', title: 'Server Infra SRE', defaultTool: 'psutil_check', toolSummary: 'Hardware Telemetry & Process Watcher', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'lab_4', col: 25, row: 10, dir: 'up', dept: 'intelligence', title: 'Data Pipeline Analyst', defaultTool: 'view_file', toolSummary: 'Telemetry & Token Flow Lineage Audit', status: 'IN_MEETING', badge_ox: 0, badge_oy: -26 },
 
       // 3. Autonomous Engineering Hub (8 Stations)
-      { id: 'eng_1', col: 34, row: 5, dir: 'up', dept: 'engineering', title: 'Frontend Engineer', defaultTool: 'write_to_file', toolSummary: 'UI & Micro-Interactions (React Bits)', status: 'WORKING' },
-      { id: 'eng_2', col: 39, row: 5, dir: 'up', dept: 'engineering', title: 'Backend Core Dev', defaultTool: 'run_command', toolSummary: 'FastAPI / WebSocket Pipeline', status: 'WORKING' },
-      { id: 'eng_3', col: 43, row: 5, dir: 'up', dept: 'engineering', title: 'Systems Refactorer', defaultTool: 'replace_file_content', toolSummary: 'Surgical Edits & AST Optimization', status: 'WORKING' },
-      { id: 'eng_8', col: 39, row: 12, dir: 'up', dept: 'engineering', title: 'Release Automator', defaultTool: 'run_command', toolSummary: 'GitHub Actions Release & Distribution', status: 'WORKING' },
-      { id: 'eng_4', col: 34, row: 9, dir: 'up', dept: 'engineering', title: 'DevOps & SRE', defaultTool: 'manage_task', toolSummary: 'CI/CD Pipeline & Windows PyInstaller', status: 'WORKING' },
-      { id: 'eng_5', col: 39, row: 9, dir: 'up', dept: 'engineering', title: 'Fullstack Engineer', defaultTool: 'write_to_file', toolSummary: 'Feature Integration & DoD Validation', status: 'WORKING' },
-      { id: 'eng_6', col: 43, row: 9, dir: 'up', dept: 'engineering', title: 'Algorithm Specialist', defaultTool: 'eval_metric', toolSummary: 'Performance Tuning & Latency Benchmarks', status: 'WORKING' },
-      { id: 'eng_7', col: 34, row: 12, dir: 'up', dept: 'engineering', title: 'Lead Architect', defaultTool: 'view_file', toolSummary: 'Codebase Verification & Quality Standard', status: 'WORKING' },
+      { id: 'eng_1', col: 34, row: 5, dir: 'up', dept: 'engineering', title: 'Frontend Engineer', defaultTool: 'write_to_file', toolSummary: 'UI & Micro-Interactions (React Bits)', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'eng_2', col: 39, row: 5, dir: 'up', dept: 'engineering', title: 'Backend Core Dev', defaultTool: 'run_command', toolSummary: 'FastAPI / WebSocket Pipeline', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'eng_3', col: 43, row: 5, dir: 'up', dept: 'engineering', title: 'Systems Refactorer', defaultTool: 'replace_file_content', toolSummary: 'Surgical Edits & AST Optimization', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'eng_4', col: 34, row: 9, dir: 'up', dept: 'engineering', title: 'DevOps & SRE', defaultTool: 'manage_task', toolSummary: 'CI/CD Pipeline & Windows PyInstaller', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'eng_5', col: 39, row: 9, dir: 'up', dept: 'engineering', title: 'Fullstack Engineer', defaultTool: 'write_to_file', toolSummary: 'Feature Integration & DoD Validation', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'eng_6', col: 43, row: 9, dir: 'up', dept: 'engineering', title: 'Algorithm Specialist', defaultTool: 'eval_metric', toolSummary: 'Performance Tuning & Latency Benchmarks', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'eng_7', col: 34, row: 12, dir: 'up', dept: 'engineering', title: 'Lead Architect', defaultTool: 'view_file', toolSummary: 'Codebase Verification & Quality Standard', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'eng_8', col: 39, row: 12, dir: 'up', dept: 'engineering', title: 'Release Automator', defaultTool: 'run_command', toolSummary: 'GitHub Actions Release & Distribution', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
 
-      // 4. Knowledge Vault & Library (2 Stations)
-      { id: 'lib_1', col: 5, row: 23, dir: 'up', dept: 'intelligence', title: 'Research Fellow', defaultTool: 'read_url_content', toolSummary: 'Technical RFC & Academic Paper Review', status: 'WORKING' },
-      { id: 'lib_2', col: 10, row: 23, dir: 'up', dept: 'intelligence', title: 'Docs Archivist', defaultTool: 'write_to_file', toolSummary: 'Permanent Knowledge Compounding', status: 'STANDBY' },
+      // 4. Knowledge Vault & Library (4 Stations)
+      { id: 'lib_1', col: 5, row: 23, dir: 'up', dept: 'intelligence', title: 'Research Fellow', defaultTool: 'read_url_content', toolSummary: 'Technical RFC & Academic Paper Review', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'lib_2', col: 10, row: 23, dir: 'up', dept: 'intelligence', title: 'Docs Archivist', defaultTool: 'write_to_file', toolSummary: 'Permanent Knowledge Compounding', status: 'STANDBY', badge_ox: 0, badge_oy: -26 },
+      { id: 'lib_3', col: 5, row: 27, dir: 'up', dept: 'intelligence', title: 'Ontology Curator', defaultTool: 'eval_prompt', toolSummary: 'Knowledge Graph Topology', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'lib_4', col: 10, row: 27, dir: 'up', dept: 'intelligence', title: 'Knowledge Sync', defaultTool: 'view_file', toolSummary: 'DemusBrain Vault Synchronization', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
 
-      // 5. QA, Verification & SecOps (8 Stations)
-      { id: 'sec_6', col: 19, row: 22, dir: 'up', dept: 'secops', title: 'QA Audit Lead', defaultTool: 'dod_verify', toolSummary: 'Definition of Done Verification', status: 'WORKING' },
-      { id: 'sec_7', col: 25, row: 22, dir: 'up', dept: 'secops', title: 'Code Validator', defaultTool: 'lint_check', toolSummary: 'Syntax, TypeCheck & Linter Enforcement', status: 'WORKING' },
-      { id: 'sec_8', col: 19, row: 26, dir: 'up', dept: 'secops', title: 'DAG Supervisor', defaultTool: 'dag_watch', toolSummary: 'Subagent Lifecycle & Process Supervisor', status: 'WORKING' },
-      { id: 'sec_5', col: 25, row: 26, dir: 'up', dept: 'secops', title: 'Incident Commander', defaultTool: 'war_room', toolSummary: 'Incident Triage & War Room Lead', status: 'WORKING' },
-      { id: 'sec_1', col: 10, row: 9, dir: 'left', dept: 'secops', title: 'Security Sentinel', defaultTool: 'threat_watch', toolSummary: 'Threat Monitoring & Zero-Trust Verification', status: 'IN_MEETING' },
-      { id: 'sec_2', col: 6, row: 11, dir: 'right', dept: 'secops', title: 'Penetration Tester', defaultTool: 'vuln_probe', toolSummary: 'Attack Surface Enumeration & Fuzzing', status: 'IN_MEETING' },
-      { id: 'sec_3', col: 10, row: 11, dir: 'left', dept: 'secops', title: 'Red Team Hunter', defaultTool: 'audit_chain', toolSummary: 'Defensive Security Triage & Exploit Analysis', status: 'IN_MEETING' },
-      { id: 'sec_4', col: 8, row: 11, dir: 'up', dept: 'secops', title: 'Compliance Guard', defaultTool: 'cred_check', toolSummary: 'Zero-Leak & DPAPI Enforcer', status: 'IN_MEETING' },
+      // 5. QA, Verification & SecOps (6 Stations)
+      { id: 'sec_6', col: 19, row: 22, dir: 'up', dept: 'secops', title: 'QA Audit Lead', defaultTool: 'dod_verify', toolSummary: 'Definition of Done Verification', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'sec_7', col: 25, row: 22, dir: 'up', dept: 'secops', title: 'Code Validator', defaultTool: 'lint_check', toolSummary: 'Syntax, TypeCheck & Linter Enforcement', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'sec_8', col: 19, row: 26, dir: 'up', dept: 'secops', title: 'DAG Supervisor', defaultTool: 'dag_watch', toolSummary: 'Subagent Lifecycle & Process Supervisor', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'sec_5', col: 25, row: 26, dir: 'up', dept: 'secops', title: 'Incident Commander', defaultTool: 'war_room', toolSummary: 'Incident Triage & War Room Lead', status: 'WORKING', badge_ox: 0, badge_oy: -26 },
+      { id: 'sec_1', col: 10, row: 9, dir: 'left', dept: 'secops', title: 'Security Sentinel', defaultTool: 'threat_watch', toolSummary: 'Threat Monitoring & Zero-Trust Verification', status: 'IN_MEETING', badge_ox: 28, badge_oy: -12 },
+      { id: 'sec_2', col: 8, row: 11, dir: 'up', dept: 'secops', title: 'Penetration Tester', defaultTool: 'vuln_probe', toolSummary: 'Attack Surface Enumeration & Fuzzing', status: 'IN_MEETING', badge_ox: 0, badge_oy: -26 },
 
       // 6. Breakroom & Lounge (3 Stations)
-      { id: 'cafe_1', col: 34, row: 20, dir: 'down', dept: 'executive', title: 'Espresso Standby Agent', defaultTool: 'break', toolSummary: 'Espresso Break & Brainstorming', status: 'STANDBY' },
-      { id: 'cafe_2', col: 38, row: 23, dir: 'right', dept: 'engineering', title: 'Standby Developer', defaultTool: 'break', toolSummary: 'Code Review & Coffee Chat', status: 'STANDBY' },
-      { id: 'cafe_3', col: 42, row: 23, dir: 'left', dept: 'secops', title: 'Standby Sentinel', defaultTool: 'break', toolSummary: 'Recharge & Standby Watch', status: 'STANDBY' }
+      { id: 'cafe_1', col: 34, row: 20, dir: 'down', dept: 'executive', title: 'Espresso Standby Agent', defaultTool: 'break', toolSummary: 'Espresso Break & Brainstorming', status: 'STANDBY', badge_ox: 0, badge_oy: -26 },
+      { id: 'cafe_2', col: 38, row: 23, dir: 'right', dept: 'engineering', title: 'Standby Developer', defaultTool: 'break', toolSummary: 'Code Review & Coffee Chat', status: 'STANDBY', badge_ox: -26, badge_oy: -22 },
+      { id: 'cafe_3', col: 42, row: 23, dir: 'left', dept: 'secops', title: 'Standby Sentinel', defaultTool: 'break', toolSummary: 'Recharge & Standby Watch', status: 'STANDBY', badge_ox: 26, badge_oy: -22 }
     ];
 
     // Clean Role Map for Badges
@@ -1672,12 +1688,12 @@ HTML_INTERFACE = """<!DOCTYPE html>
 
     // Room boundaries & metadata
     const ROOMS = [
-      { id: 'executive', name: 'WAR ROOM', c1: 2, r1: 1, c2: 15, r2: 14, getTex: () => fMahogany },
-      { id: 'intelligence', name: 'RECON & INTEL', c1: 17, r1: 1, c2: 30, r2: 14, getTex: () => fTechBlue },
-      { id: 'engineering', name: 'ENGINEERING', c1: 32, r1: 1, c2: 46, r2: 14, getTex: () => fEmerald },
-      { id: 'intelligence', name: 'KNOWLEDGE VAULT', c1: 2, r1: 17, c2: 15, r2: 30, getTex: () => fAmber },
-      { id: 'secops', name: 'QA & VERIFY', c1: 17, r1: 17, c2: 30, r2: 30, getTex: () => fViolet },
-      { id: 'cafe', name: 'BREAKROOM & LOUNGE', c1: 32, r1: 17, c2: 46, r2: 30, getTex: () => PIXEL_IMAGES['assets/floors/floor_2.png'] }
+      { id: 'executive', name: 'WAR ROOM', c1: 2, r1: 1, c2: 15, r2: 14, getTex: () => fMahogany, wall: '#2a1a16', base: '#41261e' },
+      { id: 'intelligence', name: 'RECON & INTEL', c1: 17, r1: 1, c2: 30, r2: 14, getTex: () => fTechBlue, wall: '#162030', base: '#26364e' },
+      { id: 'engineering', name: 'ENGINEERING', c1: 32, r1: 1, c2: 46, r2: 14, getTex: () => fEmerald, wall: '#12241c', base: '#203c30' },
+      { id: 'intelligence', name: 'KNOWLEDGE VAULT', c1: 2, r1: 17, c2: 15, r2: 30, getTex: () => fAmber, wall: '#302418', base: '#4c3824' },
+      { id: 'secops', name: 'QA & VERIFY', c1: 17, r1: 17, c2: 30, r2: 30, getTex: () => fViolet, wall: '#201a2c', base: '#342a46' },
+      { id: 'cafe', name: 'BREAKROOM & LOUNGE', c1: 32, r1: 17, c2: 46, r2: 30, getTex: () => fCafe, wall: '#1e1c20', base: '#322e36' }
     ];
 
     function isRoomActive(roomId) {
@@ -1738,39 +1754,45 @@ HTML_INTERFACE = """<!DOCTYPE html>
       else if (staff.desk_status === 'STANDBY') dotColor = '#94a3b8';
       else if (staff.desk_status === 'BLOCKED') dotColor = '#ef4444';
 
-      let borderColor = 'rgba(255,255,255,0.15)';
-      if (slot.dept === 'executive') borderColor = 'rgba(59, 130, 246, 0.5)';
-      else if (slot.dept === 'engineering') borderColor = 'rgba(168, 85, 247, 0.5)';
-      else if (slot.dept === 'intelligence') borderColor = 'rgba(16, 185, 129, 0.5)';
-      else if (slot.dept === 'secops') borderColor = 'rgba(245, 158, 11, 0.5)';
+      let borderColor = 'rgba(255,255,255,0.18)';
+      if (slot.dept === 'executive') borderColor = 'rgba(56, 189, 248, 0.75)';
+      else if (slot.dept === 'engineering') borderColor = 'rgba(192, 132, 252, 0.75)';
+      else if (slot.dept === 'intelligence') borderColor = 'rgba(52, 211, 153, 0.75)';
+      else if (slot.dept === 'secops') borderColor = 'rgba(251, 191, 36, 0.75)';
+      else if (slot.dept === 'cafe') borderColor = 'rgba(244, 114, 182, 0.75)';
 
-      ctx.font = '600 7.5px "JetBrains Mono", Consolas, monospace';
+      ctx.font = '600 7px "JetBrains Mono", Consolas, monospace';
       const textWidth = ctx.measureText(roleText).width;
-      const badgeW = textWidth + 14;
-      const badgeH = 12;
-      const badgeX = px - (badgeW / 2);
-      const badgeY = py - 24;
+      const badgeW = textWidth + 12;
+      const badgeH = 11;
+      const badgeX = Math.round(px - (badgeW / 2));
+      const badgeY = Math.round(py - (badgeH / 2));
 
-      ctx.fillStyle = isHovered ? 'rgba(18, 18, 28, 0.95)' : 'rgba(10, 10, 15, 0.85)';
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
-      else ctx.rect(badgeX, badgeY, badgeW, badgeH);
-      ctx.fill();
+      // High-contrast drop shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(badgeX + 1, badgeY + 1, badgeW, badgeH);
 
+      // Main Badge Body
+      ctx.fillStyle = isHovered ? 'rgba(18, 22, 34, 0.98)' : 'rgba(12, 14, 22, 0.92)';
+      ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+
+      // 1px Border
       ctx.strokeStyle = isHovered ? '#38bdf8' : borderColor;
       ctx.lineWidth = isHovered ? 1.5 : 1;
-      ctx.stroke();
+      ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
 
+      // Pulsing LED Status Dot
       const isWorking = (staff.desk_status === 'WORKING');
-      const pulseSize = isWorking ? (1.5 + 0.4 * Math.sin(frame * 0.2)) : 1.5;
+      const pulseSize = isWorking ? (1.5 + 0.3 * Math.sin(frame * 0.2)) : 1.5;
       ctx.fillStyle = dotColor;
       ctx.beginPath();
-      ctx.arc(badgeX + 5, badgeY + (badgeH / 2), pulseSize, 0, Math.PI * 2);
+      ctx.arc(badgeX + 3.5, badgeY + (badgeH / 2), pulseSize, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = isHovered ? '#ffffff' : '#e2e8f0';
+      // Text
+      ctx.fillStyle = isHovered ? '#ffffff' : '#f1f5f9';
       ctx.textBaseline = 'middle';
-      ctx.fillText(roleText, badgeX + 9, badgeY + (badgeH / 2) + 0.5);
+      ctx.fillText(roleText, badgeX + 7.5, badgeY + (badgeH / 2) + 0.5);
       ctx.restore();
     }
 
@@ -1926,20 +1948,47 @@ HTML_INTERFACE = """<!DOCTYPE html>
       });
       pixelOfficeCtx.globalAlpha = 1.0;
 
-      // 3. Draw Top Walls (2 tiles high dark slate #243046)
-      pixelOfficeCtx.fillStyle = '#243046';
+      // 3. Draw High-Detail Textured Walls at Room Tops
       ROOMS.forEach(rm => {
         const active = isRoomActive(rm.id);
         pixelOfficeCtx.globalAlpha = active ? 1.0 : 0.35;
-        pixelOfficeCtx.fillRect(rm.c1 * 16, rm.r1 * 16, (rm.c2 - rm.c1) * 16, 32);
+        const wx1 = rm.c1 * 16, wy1 = rm.r1 * 16, wx2 = rm.c2 * 16, wy2 = (rm.r1 + 2) * 16;
+        // Main wall fill
+        pixelOfficeCtx.fillStyle = rm.wall;
+        pixelOfficeCtx.fillRect(wx1, wy1, wx2 - wx1, 32);
+        // Ceiling contact shadow
+        pixelOfficeCtx.fillStyle = 'rgba(10, 12, 18, 0.9)';
+        pixelOfficeCtx.fillRect(wx1, wy1, wx2 - wx1, 1);
+        pixelOfficeCtx.fillStyle = 'rgba(18, 20, 28, 0.5)';
+        pixelOfficeCtx.fillRect(wx1, wy1 + 1, wx2 - wx1, 1);
+        // Accent trim
+        pixelOfficeCtx.fillStyle = rm.base;
+        pixelOfficeCtx.fillRect(wx1, wy2 - 4, wx2 - wx1, 1);
+        // Baseboard molding
+        pixelOfficeCtx.fillStyle = '#0f1218';
+        pixelOfficeCtx.fillRect(wx1, wy2 - 3, wx2 - wx1, 3);
+        // Floor contact drop shadow
+        pixelOfficeCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        pixelOfficeCtx.fillRect(wx1, wy2 - 1, wx2 - wx1, 1);
       });
       pixelOfficeCtx.globalAlpha = 1.0;
 
-      // Dividers
-      pixelOfficeCtx.fillStyle = '#182030';
+      // Hallway Dividers with Architectural Bevel
+      pixelOfficeCtx.fillStyle = '#0e1018';
       pixelOfficeCtx.fillRect(15 * 16, 0, 32, 512);
       pixelOfficeCtx.fillRect(30 * 16, 0, 32, 512);
       pixelOfficeCtx.fillRect(0, 14 * 16, 768, 48);
+
+      // Bevel edge highlights
+      pixelOfficeCtx.fillStyle = 'rgba(40, 48, 68, 0.5)';
+      pixelOfficeCtx.fillRect(15 * 16 - 1, 0, 1, 512);
+      pixelOfficeCtx.fillRect(30 * 16 - 1, 0, 1, 512);
+      pixelOfficeCtx.fillRect(0, 14 * 16 - 1, 768, 1);
+
+      pixelOfficeCtx.fillStyle = 'rgba(8, 10, 15, 0.8)';
+      pixelOfficeCtx.fillRect(17 * 16, 0, 1, 512);
+      pixelOfficeCtx.fillRect(32 * 16, 0, 1, 512);
+      pixelOfficeCtx.fillRect(0, 17 * 16, 768, 1);
 
       // Doorways
       const doors = [
@@ -1959,16 +2008,24 @@ HTML_INTERFACE = """<!DOCTYPE html>
         }
       });
 
+      // Carpets / Rugs (Under conference table, under lounge, under library)
+      const c0 = PIXEL_IMAGES['assets/carpets/carpet_0.png'];
+      const c1 = PIXEL_IMAGES['assets/carpets/carpet_1.png'];
+      const c2 = PIXEL_IMAGES['assets/carpets/carpet_2.png'];
+      if (c0) pixelOfficeCtx.drawImage(c0, 6 * 16, 5 * 16);
+      if (c1) pixelOfficeCtx.drawImage(c1, 38 * 16, 21 * 16);
+      if (c2) pixelOfficeCtx.drawImage(c2, 4 * 16, 21 * 16);
+
       // 4. Assemble Z-Sorted Drawables
       const drawables = [];
 
-      function addObj(imgKey, col, row, ox = 0, oy = 0, flip = false, active = true) {
+      function addObj(imgKey, col, row, ox = 0, oy = 0, flip = false, active = true, zyOffset = 0) {
         const img = PIXEL_IMAGES[imgKey];
         if (!img) return;
         const x = col * 16 + ox;
         const y = row * 16 + oy;
         drawables.push({
-          zy: y + img.height,
+          zy: y + img.height + zyOffset,
           draw: () => {
             pixelOfficeCtx.save();
             pixelOfficeCtx.globalAlpha = active ? 1.0 : 0.35;
@@ -1984,9 +2041,9 @@ HTML_INTERFACE = """<!DOCTYPE html>
         });
       }
 
-      // ── FIXED STATIC FURNITURE & DECOR ──
+      // ── FIXED STATIC FURNITURE & TRIPLE DECOR ──
       // Room 1: War Room Decor
-      addObj('assets/furniture/BOOKSHELF/BOOKSHELF.png', 4, 1, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/BOOKSHELF/BOOKSHELF.png', 3, 1, 0, 0, false, isRoomActive('executive'));
       addObj('assets/furniture/CLOCK/CLOCK.png', 8, 1, 0, 0, false, isRoomActive('executive'));
       addObj('assets/furniture/LARGE_PAINTING/LARGE_PAINTING.png', 11, 1, 0, 0, false, isRoomActive('executive'));
       addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 2, 4, 0, 0, false, isRoomActive('executive'));
@@ -2000,36 +2057,53 @@ HTML_INTERFACE = """<!DOCTYPE html>
       addObj('assets/furniture/PC/PC_SIDE.png', 9, 7, 0, 0, true, isRoomActive('executive'));
       addObj('assets/furniture/PC/PC_SIDE.png', 9, 9, 0, 0, true, isRoomActive('executive'));
       addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 13, 3, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/POT/POT.png', 2, 12, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/BIN/BIN.png', 13, 12, 0, 0, false, isRoomActive('executive'));
 
       // Room 2: Recon Decor
       addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 18, 1, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/LARGE_PAINTING/LARGE_PAINTING.png', 24, 1, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/PLANT/PLANT.png', 28, 2, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 28, 4, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 28, 7, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/BIN/BIN.png', 28, 12, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/POT/POT.png', 18, 12, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/CLOCK/CLOCK.png', 21, 1, 0, 0, false, isRoomActive('intelligence'));
 
       // Room 3: Engineering Decor
       addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 33, 1, 0, 0, false, isRoomActive('engineering'));
       addObj('assets/furniture/CLOCK/CLOCK.png', 38, 1, 0, 0, false, isRoomActive('engineering'));
-      addObj('assets/furniture/BOOKSHELF/BOOKSHELF.png', 41, 1, 0, 0, false, isRoomActive('engineering'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 41, 1, 0, 0, false, isRoomActive('engineering'));
       addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 44, 11, 0, 0, false, isRoomActive('engineering'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 32, 11, 0, 0, false, isRoomActive('engineering'));
+      addObj('assets/furniture/BIN/BIN.png', 44, 1, 0, 0, false, isRoomActive('engineering'));
+      addObj('assets/furniture/PLANT/PLANT.png', 32, 2, 0, 0, false, isRoomActive('engineering'));
 
-      // Room 4: Knowledge Vault Decor
+      // Room 4: Knowledge Vault Decor (Full Wall of Books!)
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 3, 17, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 6, 17, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 9, 17, 0, 0, false, isRoomActive('intelligence'));
-      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 13, 18, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 12, 17, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 13, 19, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/CACTUS/CACTUS.png', 2, 27, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/SMALL_TABLE/SMALL_TABLE_FRONT.png', 2, 21, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/CLOCK/CLOCK.png', 8, 17, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/BOOKSHELF/BOOKSHELF.png', 12, 27, 0, 0, false, isRoomActive('intelligence'));
 
       // Room 5: QA Decor
       addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 18, 17, 0, 0, false, isRoomActive('secops'));
       addObj('assets/furniture/CLOCK/CLOCK.png', 24, 17, 0, 0, false, isRoomActive('secops'));
       addObj('assets/furniture/PLANT/PLANT.png', 28, 18, 0, 0, false, isRoomActive('secops'));
       addObj('assets/furniture/BIN/BIN.png', 28, 28, 0, 0, false, isRoomActive('secops'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 18, 27, 0, 0, false, isRoomActive('secops'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 28, 23, 0, 0, false, isRoomActive('secops'));
+      addObj('assets/furniture/POT/POT.png', 18, 21, 0, 0, false, isRoomActive('secops'));
 
-      // Room 6: Breakroom Decor
+      // Room 6: Breakroom Decor & Gitcat Pet
       addObj('assets/furniture/SMALL_TABLE/SMALL_TABLE_FRONT.png', 33, 19, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/COFFEE/COFFEE.png', 33, 18, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/SMALL_TABLE/SMALL_TABLE_FRONT.png', 35, 19, 0, 0, false, isRoomActive('cafe'));
+      addObj('assets/furniture/POT/POT.png', 36, 18, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/COFFEE_TABLE/COFFEE_TABLE.png', 40, 23, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/SOFA/SOFA_FRONT.png', 40, 21, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/SOFA/SOFA_BACK.png', 40, 25, 0, 0, false, isRoomActive('cafe'));
@@ -2037,6 +2111,17 @@ HTML_INTERFACE = """<!DOCTYPE html>
       addObj('assets/furniture/SOFA/SOFA_SIDE.png', 42, 23, 0, 0, true, isRoomActive('cafe'));
       addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 44, 18, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/CACTUS/CACTUS.png', 44, 27, 0, 0, false, isRoomActive('cafe'));
+
+      // Gitcat Pet resting in Breakroom
+      const gitcatImg = PIXEL_IMAGES['assets/pets/gitcat/pet.png'];
+      if (gitcatImg) {
+        drawables.push({
+          zy: 26 * 16 + 16,
+          draw: () => {
+            pixelOfficeCtx.drawImage(gitcatImg, 0, 0, 32, 32, 37 * 16, 26 * 16, 24, 24);
+          }
+        });
+      }
 
       // Corridor Roaming Agent
       const walkFrame = Math.floor(pixelOfficeFrame / 6);
@@ -2064,30 +2149,30 @@ HTML_INTERFACE = """<!DOCTYPE html>
           const deskC = slot.col - 1;
           const deskR = slot.row - 1;
           // Desk
-          addObj('assets/furniture/DESK/DESK_FRONT.png', deskC, deskR, 0, 0, false, isSlotActive);
+          addObj('assets/furniture/DESK/DESK_FRONT.png', deskC, deskR, 0, 0, false, isSlotActive, 28);
           // Animated CRT phosphor glow
           const pcFrame = 1 + (Math.floor((pixelOfficeFrame + sIdx * 7) / 14) % 3);
-          addObj(`assets/furniture/PC/PC_FRONT_ON_${pcFrame}.png`, deskC + 1, deskR - 1, 0, 0, false, isSlotActive);
+          addObj(`assets/furniture/PC/PC_FRONT_ON_${pcFrame}.png`, deskC + 1, deskR - 1, 0, 0, false, isSlotActive, 28);
           // Bench Stool
-          addObj('assets/furniture/CUSHIONED_BENCH/CUSHIONED_BENCH.png', deskC + 1, deskR + 1, 0, 0, false, isSlotActive);
+          addObj('assets/furniture/CUSHIONED_BENCH/CUSHIONED_BENCH.png', deskC + 1, deskR + 1, 0, 0, false, isSlotActive, 0);
 
           // Seated Agent typing facing UP at screen
           const tx = (deskC + 1) * 16;
-          const ty = deskR * 16 + 16 - 6;
+          const ty = deskR * 16 + 10;
           const bob = isWorking ? (Math.floor((pixelOfficeFrame + sIdx) / 8) % 2) : 0;
 
           drawables.push({
-            zy: ty + 32,
+            zy: ty + 18,
             draw: () => {
               pixelOfficeCtx.save();
               pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
               if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
               drawCharFrame(pixelOfficeCtx, charIdx, 'up', isWorking ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
-              if (isHovered || (activeZoneFilter !== 'all' && isSlotActive) || (activeZoneFilter === 'all' && slot.isPrimary)) {
-                drawFloatingBadge(pixelOfficeCtx, tx + 8, ty + 4, staff, slot, isHovered, pixelOfficeFrame);
-              } else {
-                drawMiniStatusDot(pixelOfficeCtx, tx + 8, ty + 4, staff, pixelOfficeFrame);
-              }
+              
+              // Overhead UI Badge for All Staff!
+              const badgeOx = slot.badge_ox || 0;
+              const badgeOy = slot.badge_oy || -24;
+              drawFloatingBadge(pixelOfficeCtx, tx + 8 + badgeOx, ty + badgeOy, staff, slot, isHovered, pixelOfficeFrame);
               pixelOfficeCtx.restore();
             }
           });
@@ -2098,17 +2183,17 @@ HTML_INTERFACE = """<!DOCTYPE html>
           const bob = isWorking ? (Math.floor((pixelOfficeFrame + sIdx) / 8) % 2) : 0;
 
           drawables.push({
-            zy: ty + 32,
+            zy: ty + 16,
             draw: () => {
               pixelOfficeCtx.save();
               pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
               if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
               drawCharFrame(pixelOfficeCtx, charIdx, slot.dir, isWorking ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
-              if (isHovered || (activeZoneFilter !== 'all' && isSlotActive) || (activeZoneFilter === 'all' && slot.isPrimary)) {
-                drawFloatingBadge(pixelOfficeCtx, tx + 8, ty + 4, staff, slot, isHovered, pixelOfficeFrame);
-              } else {
-                drawMiniStatusDot(pixelOfficeCtx, tx + 8, ty + 4, staff, pixelOfficeFrame);
-              }
+              
+              // Overhead UI Badge for All Staff!
+              const badgeOx = slot.badge_ox || 0;
+              const badgeOy = slot.badge_oy || -24;
+              drawFloatingBadge(pixelOfficeCtx, tx + 8 + badgeOx, ty + badgeOy, staff, slot, isHovered, pixelOfficeFrame);
               pixelOfficeCtx.restore();
             }
           });
