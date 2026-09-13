@@ -647,12 +647,15 @@ HTML_INTERFACE = """<!DOCTYPE html>
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: #9D9D9D;
+      color: #888888;
+      transition: all 0.15s ease;
+      cursor: pointer !important;
       background: transparent;
       border: none;
-      cursor: pointer;
-      transition: background-color 0.1s ease, color 0.1s ease;
       outline: none;
+      -webkit-app-region: no-drag !important;
+      pointer-events: auto !important;
+      z-index: 9999 !important;
     }
     .win-btn:hover {
       background-color: #2D2D2D;
@@ -1061,7 +1064,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
     <div ondblclick="windowMaximize()" class="flex-1 h-full cursor-default select-none" style="-webkit-app-region: drag;"></div>
 
     <!-- Right: Window Controls (1:1 Windows 11 / Antigravity 2.0) -->
-    <div class="flex items-center h-full shrink-0 select-none">
+    <div class="flex items-center h-full shrink-0 select-none" style="-webkit-app-region: no-drag !important; pointer-events: auto !important; z-index: 9999;">
       <button onclick="windowMinimize()" title="Minimize" class="win-btn">
         <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
       </button>
@@ -1588,7 +1591,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
       fAmber    = create2ToneFloor(f6, [170, 120, 72], [115, 76, 42]);   // Knowledge: Honey Oak Planks
       fViolet   = create2ToneFloor(f3, [48, 38, 66], [28, 22, 40]);      // QA: Tactical Violet Grid
       fCafe     = create2ToneFloor(f7, [215, 210, 200], [45, 40, 45]);   // Breakroom: High-contrast Checker
-      fCorridor = create2ToneFloor(f1, [24, 28, 38], [14, 16, 24]);      // Corridor: Dark Tech Slate
+      fCorridor = create2ToneFloor(f6, [145, 100, 62], [95, 62, 38]);    // Corridor: Warm Hardwood Parquet
     }
 
     // 28 Specialized Agent Workstations with Spaced Badges (Discrete 48x32 Grid, TILE_SIZE = 16px)
@@ -1927,7 +1930,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
         return;
       }
 
-      // 1. Draw Corridors Background
+      // 1. Draw Warm Hardwood Parquet Corridor Floor Background
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           if (fCorridor) pixelOfficeCtx.drawImage(fCorridor, c * 16, r * 16);
@@ -1948,65 +1951,93 @@ HTML_INTERFACE = """<!DOCTYPE html>
       });
       pixelOfficeCtx.globalAlpha = 1.0;
 
-      // 3. Draw High-Detail Textured Walls at Room Tops
+      // 3. Draw Architectural Walls & Doorways
+      const WALL_C = '#202634';
+      const WALL_TOP = '#323c50';
+      const WALL_BASE = '#121620';
+      const WALL_TRIM = '#3c4a62';
+
+      function drawHWall(x1, y1, x2, h) {
+        pixelOfficeCtx.fillStyle = WALL_C;
+        pixelOfficeCtx.fillRect(x1, y1, x2 - x1, h);
+        pixelOfficeCtx.fillStyle = WALL_TOP;
+        pixelOfficeCtx.fillRect(x1, y1, x2 - x1, 1);
+        pixelOfficeCtx.fillStyle = WALL_TRIM;
+        pixelOfficeCtx.fillRect(x1, y1 + h - 4, x2 - x1, 1);
+        pixelOfficeCtx.fillStyle = WALL_BASE;
+        pixelOfficeCtx.fillRect(x1, y1 + h - 3, x2 - x1, 3);
+        pixelOfficeCtx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        pixelOfficeCtx.fillRect(x1, y1 + h, x2 - x1, 1);
+      }
+
+      function drawVWall(x1, y1, x2, y2) {
+        pixelOfficeCtx.fillStyle = WALL_C;
+        pixelOfficeCtx.fillRect(x1, y1, x2 - x1, y2 - y1);
+        pixelOfficeCtx.fillStyle = WALL_TOP;
+        pixelOfficeCtx.fillRect(x1, y1, 1, y2 - y1);
+        pixelOfficeCtx.fillStyle = WALL_BASE;
+        pixelOfficeCtx.fillRect(x2 - 1, y1, 1, y2 - y1);
+        pixelOfficeCtx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        pixelOfficeCtx.fillRect(x2, y1, 1, y2 - y1);
+      }
+
+      // Room Top Interior Walls (2 tiles high)
       ROOMS.forEach(rm => {
         const active = isRoomActive(rm.id);
         pixelOfficeCtx.globalAlpha = active ? 1.0 : 0.35;
         const wx1 = rm.c1 * 16, wy1 = rm.r1 * 16, wx2 = rm.c2 * 16, wy2 = (rm.r1 + 2) * 16;
-        // Main wall fill
         pixelOfficeCtx.fillStyle = rm.wall;
         pixelOfficeCtx.fillRect(wx1, wy1, wx2 - wx1, 32);
-        // Ceiling contact shadow
         pixelOfficeCtx.fillStyle = 'rgba(10, 12, 18, 0.9)';
         pixelOfficeCtx.fillRect(wx1, wy1, wx2 - wx1, 1);
-        pixelOfficeCtx.fillStyle = 'rgba(18, 20, 28, 0.5)';
-        pixelOfficeCtx.fillRect(wx1, wy1 + 1, wx2 - wx1, 1);
-        // Accent trim
         pixelOfficeCtx.fillStyle = rm.base;
         pixelOfficeCtx.fillRect(wx1, wy2 - 4, wx2 - wx1, 1);
-        // Baseboard molding
         pixelOfficeCtx.fillStyle = '#0f1218';
         pixelOfficeCtx.fillRect(wx1, wy2 - 3, wx2 - wx1, 3);
-        // Floor contact drop shadow
         pixelOfficeCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         pixelOfficeCtx.fillRect(wx1, wy2 - 1, wx2 - wx1, 1);
       });
       pixelOfficeCtx.globalAlpha = 1.0;
 
-      // Hallway Dividers with Architectural Bevel
-      pixelOfficeCtx.fillStyle = '#0e1018';
-      pixelOfficeCtx.fillRect(15 * 16, 0, 32, 512);
-      pixelOfficeCtx.fillRect(30 * 16, 0, 32, 512);
-      pixelOfficeCtx.fillRect(0, 14 * 16, 768, 48);
+      // Exterior Perimeter Walls
+      drawHWall(0, 0, 48 * 16, 16);
+      drawHWall(0, 31 * 16, 48 * 16, 16);
+      drawVWall(0, 0, 32, 32 * 16);
+      drawVWall(46 * 16, 0, 48 * 16, 32 * 16);
 
-      // Bevel edge highlights
-      pixelOfficeCtx.fillStyle = 'rgba(40, 48, 68, 0.5)';
-      pixelOfficeCtx.fillRect(15 * 16 - 1, 0, 1, 512);
-      pixelOfficeCtx.fillRect(30 * 16 - 1, 0, 1, 512);
-      pixelOfficeCtx.fillRect(0, 14 * 16 - 1, 768, 1);
+      // Vertical Dividing Walls with Doorways
+      // Left vertical wall (col 15..16)
+      drawVWall(15 * 16, 0, 17 * 16, 7 * 16);
+      drawVWall(15 * 16, 9 * 16, 17 * 16, 14 * 16);
+      drawVWall(15 * 16, 17 * 16, 17 * 16, 23 * 16);
+      drawVWall(15 * 16, 25 * 16, 17 * 16, 31 * 16);
 
-      pixelOfficeCtx.fillStyle = 'rgba(8, 10, 15, 0.8)';
-      pixelOfficeCtx.fillRect(17 * 16, 0, 1, 512);
-      pixelOfficeCtx.fillRect(32 * 16, 0, 1, 512);
-      pixelOfficeCtx.fillRect(0, 17 * 16, 768, 1);
+      // Right vertical wall (col 30..31)
+      drawVWall(30 * 16, 0, 32 * 16, 7 * 16);
+      drawVWall(30 * 16, 9 * 16, 32 * 16, 14 * 16);
+      drawVWall(30 * 16, 17 * 16, 32 * 16, 23 * 16);
+      drawVWall(30 * 16, 25 * 16, 32 * 16, 31 * 16);
 
-      // Doorways
-      const doors = [
-        [15 * 16, 7 * 16, 32, 32],
-        [30 * 16, 7 * 16, 32, 32],
-        [15 * 16, 23 * 16, 32, 32],
-        [30 * 16, 23 * 16, 32, 32],
-        [7 * 16, 14 * 16, 32, 48],
-        [23 * 16, 14 * 16, 32, 48],
-        [38 * 16, 14 * 16, 32, 48]
+      // Horizontal Central Corridor Dividing Walls (separates upper rooms from central hallway)
+      drawHWall(2 * 16, 14 * 16, 7 * 16, 16);
+      drawHWall(9 * 16, 14 * 16, 15 * 16, 16);
+      drawHWall(17 * 16, 14 * 16, 23 * 16, 16);
+      drawHWall(25 * 16, 14 * 16, 30 * 16, 16);
+      drawHWall(32 * 16, 14 * 16, 38 * 16, 16);
+      drawHWall(40 * 16, 14 * 16, 46 * 16, 16);
+
+      // Doorframe Posts (3D metallic / wood jambs)
+      const doorPosts = [
+        [15 * 16, 7 * 16 - 2, 32, 2], [15 * 16, 9 * 16, 32, 2],
+        [30 * 16, 7 * 16 - 2, 32, 2], [30 * 16, 9 * 16, 32, 2],
+        [15 * 16, 23 * 16 - 2, 32, 2], [15 * 16, 25 * 16, 32, 2],
+        [30 * 16, 23 * 16 - 2, 32, 2], [30 * 16, 25 * 16, 32, 2],
+        [7 * 16 - 2, 14 * 16, 2, 16], [9 * 16, 14 * 16, 2, 16],
+        [23 * 16 - 2, 14 * 16, 2, 16], [25 * 16, 14 * 16, 2, 16],
+        [38 * 16 - 2, 14 * 16, 2, 16], [40 * 16, 14 * 16, 2, 16]
       ];
-      doors.forEach(([dx, dy, dw, dh]) => {
-        for (let py = dy; py < dy + dh; py += 16) {
-          for (let px = dx; px < dx + dw; px += 16) {
-            if (fCorridor) pixelOfficeCtx.drawImage(fCorridor, px, py);
-          }
-        }
-      });
+      pixelOfficeCtx.fillStyle = '#4a5b78';
+      doorPosts.forEach(([px, py, pw, ph]) => pixelOfficeCtx.fillRect(px, py, pw, ph));
 
       // Carpets / Rugs (Under conference table, under lounge, under library)
       const c0 = PIXEL_IMAGES['assets/carpets/carpet_0.png'];
@@ -2015,6 +2046,17 @@ HTML_INTERFACE = """<!DOCTYPE html>
       if (c0) pixelOfficeCtx.drawImage(c0, 6 * 16, 5 * 16);
       if (c1) pixelOfficeCtx.drawImage(c1, 38 * 16, 21 * 16);
       if (c2) pixelOfficeCtx.drawImage(c2, 4 * 16, 21 * 16);
+
+      // Central Corridor Crimson Runner Rug
+      const rx1 = 13 * 16, ry1 = 15 * 16 + 2, rw = 22 * 16, rh = 12;
+      pixelOfficeCtx.fillStyle = '#6a2024';
+      pixelOfficeCtx.fillRect(rx1, ry1, rw, rh);
+      pixelOfficeCtx.strokeStyle = '#b8444c';
+      pixelOfficeCtx.lineWidth = 1;
+      pixelOfficeCtx.strokeRect(rx1, ry1, rw, rh);
+      pixelOfficeCtx.fillStyle = '#e2757c';
+      pixelOfficeCtx.fillRect(rx1, ry1 + 2, rw, 1);
+      pixelOfficeCtx.fillRect(rx1, ry1 + rh - 3, rw, 1);
 
       // 4. Assemble Z-Sorted Drawables
       const drawables = [];
@@ -2041,7 +2083,16 @@ HTML_INTERFACE = """<!DOCTYPE html>
         });
       }
 
-      // ── FIXED STATIC FURNITURE & TRIPLE DECOR ──
+      // ── CORRIDOR AMENITIES & DECOR ──
+      addObj('assets/furniture/WOODEN_BENCH/WOODEN_BENCH.png', 18, 15, 0, 0, false, true);
+      addObj('assets/furniture/WOODEN_BENCH/WOODEN_BENCH.png', 26, 15, 0, 0, false, true);
+      addObj('assets/furniture/PLANT/PLANT.png', 15, 14, -8, -4, false, true);
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 32, 14, 4, -8, false, true);
+      addObj('assets/furniture/BIN/BIN.png', 29, 15, 0, 0, false, true);
+      addObj('assets/furniture/SMALL_PAINTING/SMALL_PAINTING.png', 20, 14, 0, 0, false, true);
+      addObj('assets/furniture/SMALL_PAINTING/SMALL_PAINTING.png', 28, 14, 0, 0, false, true);
+
+      // ── FIXED STATIC FURNITURE & DECOR ──
       // Room 1: War Room Decor
       addObj('assets/furniture/BOOKSHELF/BOOKSHELF.png', 3, 1, 0, 0, false, isRoomActive('executive'));
       addObj('assets/furniture/CLOCK/CLOCK.png', 8, 1, 0, 0, false, isRoomActive('executive'));
@@ -2079,7 +2130,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
       addObj('assets/furniture/BIN/BIN.png', 44, 1, 0, 0, false, isRoomActive('engineering'));
       addObj('assets/furniture/PLANT/PLANT.png', 32, 2, 0, 0, false, isRoomActive('engineering'));
 
-      // Room 4: Knowledge Vault Decor (Full Wall of Books!)
+      // Room 4: Knowledge Vault Decor
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 3, 17, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 6, 17, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 9, 17, 0, 0, false, isRoomActive('intelligence'));
@@ -3740,10 +3791,20 @@ class AntigravityProWindow(QMainWindow):
         self._min_anim = None
         self._restore_anim = None
 
-        self.sig_toggle_max.connect(self.animate_toggle_max)
-        self.sig_minimize.connect(self.animate_minimize)
-        self.sig_close.connect(self.close)
+        self.sig_toggle_max.connect(self.window_toggle_max)
+        self.sig_minimize.connect(self.window_minimize)
+        self.sig_close.connect(self.window_close)
         self.sig_quit.connect(QApplication.instance().quit)
+
+        # Ensure WS_MINIMIZEBOX and WS_MAXIMIZEBOX on Windows
+        try:
+            user32 = ctypes.windll.user32
+            hwnd = int(self.winId())
+            style = user32.GetWindowLongW(hwnd, -16)
+            style |= 0x00020000 | 0x00010000 | 0x00080000
+            user32.SetWindowLongW(hwnd, -16, style)
+        except Exception:
+            pass
 
         self.setWindowTitle("Antigravity Control Center")
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
@@ -3764,53 +3825,26 @@ class AntigravityProWindow(QMainWindow):
     def is_window_maximized(self):
         return self._is_custom_maximized or self.isMaximized()
 
-    def animate_toggle_max(self):
-        if self._max_anim and self._max_anim.state() == QPropertyAnimation.Running:
-            return
-        
-        screen = QApplication.primaryScreen()
-        avail = screen.availableGeometry()
-
-        if self.is_window_maximized():
-            target = self._normal_geometry or QRect(avail.x() + 80, avail.y() + 60, 840, 800)
-            self._max_anim = QPropertyAnimation(self, b"geometry")
-            self._max_anim.setDuration(220)
-            self._max_anim.setEasingCurve(QEasingCurve.OutCubic)
-            self._max_anim.setStartValue(self.geometry())
-            self._max_anim.setEndValue(target)
-            def on_restore_finished():
-                self._is_custom_maximized = False
-                if hasattr(self, "browser") and self.browser.page():
-                    self.browser.page().runJavaScript("if (typeof setMaximizedState === 'function') setMaximizedState(false);")
-            self._max_anim.finished.connect(on_restore_finished)
-            self._max_anim.start()
+    def window_toggle_max(self):
+        if self.isMaximized() or self._is_custom_maximized:
+            self._is_custom_maximized = False
+            self.showNormal()
+            if hasattr(self, "browser") and self.browser.page():
+                self.browser.page().runJavaScript("if (typeof setMaximizedState === 'function') setMaximizedState(false);")
         else:
-            self._normal_geometry = self.geometry()
-            self._max_anim = QPropertyAnimation(self, b"geometry")
-            self._max_anim.setDuration(220)
-            self._max_anim.setEasingCurve(QEasingCurve.OutCubic)
-            self._max_anim.setStartValue(self.geometry())
-            self._max_anim.setEndValue(avail)
-            def on_max_finished():
-                self._is_custom_maximized = True
-                if hasattr(self, "browser") and self.browser.page():
-                    self.browser.page().runJavaScript("if (typeof setMaximizedState === 'function') setMaximizedState(true);")
-            self._max_anim.finished.connect(on_max_finished)
-            self._max_anim.start()
+            self._is_custom_maximized = True
+            self.showMaximized()
+            if hasattr(self, "browser") and self.browser.page():
+                self.browser.page().runJavaScript("if (typeof setMaximizedState === 'function') setMaximizedState(true);")
 
-    def animate_minimize(self):
-        if self._min_anim and self._min_anim.state() == QPropertyAnimation.Running:
-            return
-        self._min_anim = QPropertyAnimation(self, b"windowOpacity")
-        self._min_anim.setDuration(140)
-        self._min_anim.setEasingCurve(QEasingCurve.InQuad)
-        self._min_anim.setStartValue(1.0)
-        self._min_anim.setEndValue(0.0)
-        def on_min_finished():
-            self.showMinimized()
-            self.setWindowOpacity(1.0)
-        self._min_anim.finished.connect(on_min_finished)
-        self._min_anim.start()
+    def window_minimize(self):
+        self.showMinimized()
+
+    def window_close(self):
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self.hide()
+        else:
+            self.close()
 
     def nativeEvent(self, eventType, message):
         msg = wintypes.MSG.from_address(message.__int__())
@@ -3824,37 +3858,39 @@ class AntigravityProWindow(QMainWindow):
             w = self.width()
             h = self.height()
             
-            # If window is currently maximized, disable resize borders
-            if self.is_window_maximized():
-                if p.y() < 36:
-                    if 350 <= p.x() <= (w - 140):
-                        return True, 2  # HTCAPTION (double click to restore / drag to unmaximize)
-                    return False, 0
-                return False, 0
+            # 1. Top bar interaction zone (0 <= y < 36)
+            if 0 <= p.y() < 36:
+                # Window control buttons (Minimize, Maximize, Close on far right)
+                if p.x() >= (w - 140):
+                    return True, 1  # HTCLIENT (Delivers 100% of clicks directly to web buttons)
+                # Logo & Menu dropdowns on left
+                if p.x() < 350:
+                    return True, 1  # HTCLIENT (Delivers menu clicks)
+                # Middle title region: Native Drag & Double-Click Maximize
+                return True, 2  # HTCAPTION
 
-            border = 6
-            left = p.x() < border
-            right = p.x() > w - border
-            bottom = p.y() > h - border
-            
-            # Corners
-            if p.y() < border and left: return True, 13     # HTTOPLEFT
-            if p.y() < border and right: return True, 14    # HTTOPRIGHT
-            if bottom and left: return True, 16             # HTBOTTOMLEFT
-            if bottom and right: return True, 17            # HTBOTTOMRIGHT
-            if left: return True, 10                        # HTLEFT
-            if right: return True, 11                       # HTRIGHT
-            if bottom: return True, 15                      # HTBOTTOM
-            
-            # Top bar interaction (0 <= y < 36)
-            if p.y() < 36:
-                if 350 <= p.x() <= (w - 140):
-                    return True, 2  # HTCAPTION (native drag & snap & double-click maximize)
-                return False, 0
+            # 2. Resize borders when NOT maximized
+            if not self.is_window_maximized():
+                border = 6
+                left = p.x() < border
+                right = p.x() > w - border
+                bottom = p.y() > h - border
+                top = p.y() < border
+                
+                if top and left: return True, 13     # HTTOPLEFT
+                if top and right: return True, 14    # HTTOPRIGHT
+                if bottom and left: return True, 16  # HTBOTTOMLEFT
+                if bottom and right: return True, 17 # HTBOTTOMRIGHT
+                if left: return True, 10             # HTLEFT
+                if right: return True, 11            # HTRIGHT
+                if bottom: return True, 15           # HTBOTTOM
+                if top: return True, 12              # HTTOP
+                
+            return True, 1  # HTCLIENT for the entire application body
                 
         elif msg.message == 0x00A3:  # WM_NCLBUTTONDBLCLK
             if msg.wParam == 2:  # HTCAPTION
-                self.animate_toggle_max()
+                self.window_toggle_max()
                 return True, 0
 
         return super().nativeEvent(eventType, message)
