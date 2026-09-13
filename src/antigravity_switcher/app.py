@@ -483,6 +483,17 @@ def set_autopilot_state(enable: bool):
         return False
     return True
 
+# --- Pixel Art Assets Bundle Loader ---
+PIXEL_BUNDLE_PATH = os.path.join(os.path.dirname(__file__), "assets", "pixel_assets_bundle.json")
+if os.path.exists(PIXEL_BUNDLE_PATH):
+    try:
+        with open(PIXEL_BUNDLE_PATH, "r", encoding="utf-8") as _f:
+            PIXEL_ASSETS_BUNDLE_JSON = _f.read()
+    except Exception:
+        PIXEL_ASSETS_BUNDLE_JSON = "{}"
+else:
+    PIXEL_ASSETS_BUNDLE_JSON = "{}"
+
 # --- HTML / Tailwind Linear Interface ---
 HTML_INTERFACE = """<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -1199,9 +1210,9 @@ HTML_INTERFACE = """<!DOCTYPE html>
 
         <!-- Master Pixel Viewport Container -->
         <div id="pixel-stage-container" class="relative w-full rounded-xl overflow-auto border border-hairline shadow-2xl bg-[#09090d] select-none flex items-center justify-center p-3">
-          <div id="pixel-stage" class="relative overflow-hidden rounded-lg shadow-2xl max-w-full" style="width: 720px; aspect-ratio: 1/1;">
-            <!-- Interactive 1024x1024 HTML5 Canvas Pixel Office Engine -->
-            <canvas id="pixel-office-canvas" width="1024" height="1024" class="w-full h-full block cursor-pointer select-none" style="image-rendering: pixelated;"></canvas>
+          <div id="pixel-stage" class="relative overflow-hidden rounded-lg shadow-2xl max-w-full" style="width: 860px; max-width: 100%; aspect-ratio: 768 / 512;">
+            <!-- Interactive 768x512 HTML5 Canvas Pixel Office Engine -->
+            <canvas id="pixel-office-canvas" width="768" height="512" class="w-full h-full block cursor-pointer select-none" style="image-rendering: pixelated;"></canvas>
             <!-- CRT Arcade Scanlines Overlay -->
             <div id="pixel-crt-overlay" class="absolute inset-0 pointer-events-none crt-scanlines opacity-0 transition-opacity duration-300 z-40"></div>
             <!-- Dynamic Floating Telemetry HUD Tooltip on Hover -->
@@ -1496,209 +1507,116 @@ HTML_INTERFACE = """<!DOCTYPE html>
     let initialDossier = null;
     let currentPixelStageScale = 'fit';
     let pixelCrtActive = false;
-
-    // 28 Modular Furniture & Desk Stations (Discrete 32x32 Grid, TILE_SIZE = 32px)
-    const OFFICE_STATIONS = [
-      // 1. Engineering Bullpen (8 Desks - 4 Top Row, 4 Bottom Row)
-      { id: 'eng_1', col: 17, row: 4, dir: 'up', dept: 'engineering', title: 'Frontend Engineer', defaultTool: 'write_to_file', toolSummary: 'UI & Micro-Interactions (React Bits)', status: 'WORKING' },
-      { id: 'eng_2', col: 21, row: 4, dir: 'up', dept: 'engineering', title: 'Backend Core Dev', defaultTool: 'run_command', toolSummary: 'FastAPI / WebSocket Pipeline', status: 'WORKING' },
-      { id: 'eng_3', col: 25, row: 4, dir: 'up', dept: 'engineering', title: 'Systems Refactorer', defaultTool: 'replace_file_content', toolSummary: 'Surgical Edits & AST Optimization', status: 'WORKING' },
-      { id: 'eng_8', col: 28, row: 4, dir: 'up', dept: 'engineering', title: 'Release Automator', defaultTool: 'run_command', toolSummary: 'GitHub Actions Release & Distribution', status: 'WORKING' },
-      { id: 'eng_4', col: 17, row: 9, dir: 'up', dept: 'engineering', title: 'DevOps & SRE', defaultTool: 'manage_task', toolSummary: 'CI/CD Pipeline & Windows PyInstaller', status: 'WORKING' },
-      { id: 'eng_5', col: 21, row: 9, dir: 'up', dept: 'engineering', title: 'Fullstack Engineer', defaultTool: 'write_to_file', toolSummary: 'Feature Integration & DoD Validation', status: 'WORKING' },
-      { id: 'eng_6', col: 25, row: 9, dir: 'up', dept: 'engineering', title: 'Algorithm Specialist', defaultTool: 'eval_metric', toolSummary: 'Performance Tuning & Latency Benchmarks', status: 'WORKING' },
-      { id: 'eng_7', col: 28, row: 9, dir: 'up', dept: 'engineering', title: 'Lead Architect', defaultTool: 'view_file', toolSummary: 'Codebase Verification & Quality Standard', status: 'WORKING' },
-
-      // 2. Data Science & Server Lab (4 Stations)
-      { id: 'lab_1', col: 5, row: 4, dir: 'up', dept: 'intelligence', title: 'Model Evaluator', defaultTool: 'eval_prompt', toolSummary: 'Prompt Perplexity & Reasoning Audit', status: 'WORKING' },
-      { id: 'lab_2', col: 9, row: 4, dir: 'up', dept: 'intelligence', title: 'Knowledge Miner', defaultTool: 'grep_search', toolSummary: 'DemusBrain Vault Indexing & MOC Sync', status: 'WORKING' },
-      { id: 'lab_3', col: 5, row: 9, dir: 'up', dept: 'intelligence', title: 'Server Infra SRE', defaultTool: 'psutil_check', toolSummary: 'Hardware Telemetry & Process Watcher', status: 'WORKING' },
-      { id: 'lab_4', col: 9, row: 9, dir: 'up', dept: 'intelligence', title: 'Data Pipeline Analyst', defaultTool: 'view_file', toolSummary: 'Telemetry & Token Flow Lineage Audit', status: 'IN_MEETING' },
-
-      // 3. Executive Suite (3 Stations)
-      { id: 'exec_1', col: 7, row: 24, dir: 'down', dept: 'executive', title: 'Lead Orchestrator (Root)', defaultTool: 'invoke_subagent', toolSummary: 'Autonomous Primary Loop & Strategy', status: 'WORKING', isPrimary: true },
-      { id: 'exec_2', col: 5, row: 29, dir: 'up', dept: 'executive', title: 'Strategic Advisor', defaultTool: 'sync_plan', toolSummary: 'High-Level Architectural Review', status: 'IN_MEETING' },
-      { id: 'exec_3', col: 9, row: 29, dir: 'up', dept: 'executive', title: 'Chief Systems Architect', defaultTool: 'break', toolSummary: 'System Blueprinting & Roadmap', status: 'STANDBY' },
-
-      // 4. Cozy Library & Strategy Room (2 Stations)
-      { id: 'lib_1', col: 5, row: 17, dir: 'right', dept: 'intelligence', title: 'Research Fellow', defaultTool: 'read_url_content', toolSummary: 'Technical RFC & Academic Paper Review', status: 'WORKING' },
-      { id: 'lib_2', col: 9, row: 17, dir: 'left', dept: 'intelligence', title: 'Docs Archivist', defaultTool: 'write_to_file', toolSummary: 'Permanent Knowledge Compounding', status: 'STANDBY' },
-
-      // 5. Cafeteria & Breakroom (3 Stations)
-      { id: 'cafe_1', col: 24, row: 15, dir: 'down', dept: 'executive', title: 'Espresso Standby Agent', defaultTool: 'break', toolSummary: 'Espresso Break & Brainstorming', status: 'STANDBY' },
-      { id: 'cafe_2', col: 22, row: 18, dir: 'right', dept: 'engineering', title: 'Standby Developer', defaultTool: 'break', toolSummary: 'Code Review & Coffee Chat', status: 'STANDBY' },
-      { id: 'cafe_3', col: 26, row: 18, dir: 'left', dept: 'secops', title: 'Standby Sentinel', defaultTool: 'break', toolSummary: 'Recharge & Standby Watch', status: 'STANDBY' },
-
-      // 6. SecOps & Incident War Room (8 Conference & Command Seats)
-      { id: 'sec_1', col: 21, row: 23, dir: 'down', dept: 'secops', title: 'Security Sentinel', defaultTool: 'threat_watch', toolSummary: 'Threat Monitoring & Zero-Trust Verification', status: 'IN_MEETING' },
-      { id: 'sec_2', col: 24, row: 23, dir: 'down', dept: 'secops', title: 'Penetration Tester', defaultTool: 'vuln_probe', toolSummary: 'Attack Surface Enumeration & Fuzzing', status: 'IN_MEETING' },
-      { id: 'sec_8', col: 27, row: 23, dir: 'down', dept: 'secops', title: 'DAG Supervisor', defaultTool: 'dag_watch', toolSummary: 'Subagent Lifecycle & Process Supervisor', status: 'IN_MEETING' },
-      { id: 'sec_7', col: 19, row: 25, dir: 'right', dept: 'secops', title: 'Code Validator', defaultTool: 'lint_check', toolSummary: 'Syntax, TypeCheck & Linter Enforcement', status: 'IN_MEETING' },
-      { id: 'sec_3', col: 29, row: 25, dir: 'left', dept: 'secops', title: 'Red Team Hunter', defaultTool: 'audit_chain', toolSummary: 'Defensive Security Triage & Exploit Analysis', status: 'IN_MEETING' },
-      { id: 'sec_6', col: 21, row: 28, dir: 'up', dept: 'secops', title: 'QA Audit Lead', defaultTool: 'dod_verify', toolSummary: 'Definition of Done Verification', status: 'IN_MEETING' },
-      { id: 'sec_5', col: 24, row: 28, dir: 'up', dept: 'secops', title: 'Incident Commander', defaultTool: 'war_room', toolSummary: 'Incident Triage & War Room Lead', status: 'IN_MEETING' },
-      { id: 'sec_4', col: 27, row: 28, dir: 'up', dept: 'secops', title: 'Compliance Guard', defaultTool: 'cred_check', toolSummary: 'Zero-Leak & DPAPI Enforcer', status: 'IN_MEETING' }
-    ];
-
-    // Polyfill CanvasRenderingContext2D.prototype.roundRect for QtWebEngine (Chrome 87) & older WebViews
-    if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
-      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
-        let r = 0;
-        if (typeof radii === 'number') r = radii;
-        else if (Array.isArray(radii)) r = radii[0] || 0;
-        if (w < 2 * r) r = w / 2;
-        if (h < 2 * r) r = h / 2;
-        this.moveTo(x + r, y);
-        this.arcTo(x + w, y, x + w, y + h, r);
-        this.arcTo(x + w, y + h, x, y + h, r);
-        this.arcTo(x, y + h, x, y, r);
-        this.arcTo(x, y, x + w, y, r);
-        this.closePath();
-        return this;
-      };
-    }
-
-    // --- HIGH-PERFORMANCE MODULAR 2D TILEMAP & ENTITY ENGINE ---
-    let pixelOfficeCanvas = null;
-    let pixelOfficeCtx = null;
-    let pixelOfficeAnimationId = null;
-    let pixelOfficeFrame = 0;
-    let pixelOfficeStations = [];
-    let pixelOfficeHoverIdx = -1;
     let activeZoneFilter = 'all';
 
-    const TILE_SIZE = 32;
-    const COLS = 32;
-    const ROWS = 32;
+    // Injected Base64 Assets Bundle from Python
+    const PIXEL_ASSETS_DATA = /* __PIXEL_ASSETS_BUNDLE__ */ {};
+    const PIXEL_IMAGES = {};
+    let pixelAssetsReady = false;
+    let fMahogany = null, fTechBlue = null, fEmerald = null, fAmber = null, fViolet = null, fCorridor = null;
 
-    // Room Tile Matrix (32x32)
-    // 0: Marble Corridor, 1: Engineering, 2: AI Lab, 3: Executive, 4: War Room, 5: Library, 6: Cafeteria, 9: Wall
-    const ROOM_MAP = new Uint8Array(COLS * ROWS);
-
-    function initRoomMap() {
-      ROOM_MAP.fill(0);
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (r === 0 || r === ROWS - 1 || c === 0 || c === COLS - 1) {
-            ROOM_MAP[r * COLS + c] = 9;
-            continue;
-          }
-          if (c >= 1 && c <= 13 && r >= 1 && r <= 12) ROOM_MAP[r * COLS + c] = 2;
-          else if (c >= 1 && c <= 13 && r >= 14 && r <= 20) ROOM_MAP[r * COLS + c] = 5;
-          else if (c >= 1 && c <= 13 && r >= 22 && r <= 30) ROOM_MAP[r * COLS + c] = 3;
-          else if (c >= 15 && c <= 30 && r >= 1 && r <= 12) ROOM_MAP[r * COLS + c] = 1;
-          else if (c >= 19 && c <= 30 && r >= 14 && r <= 20) ROOM_MAP[r * COLS + c] = 6;
-          else if (c >= 16 && c <= 30 && r >= 22 && r <= 30) ROOM_MAP[r * COLS + c] = 4;
-
-          if (r === 13 && c >= 1 && c <= 13 && c !== 7) ROOM_MAP[r * COLS + c] = 9;
-          if (r === 21 && c >= 1 && c <= 13 && c !== 7) ROOM_MAP[r * COLS + c] = 9;
-          if (c === 14 && r !== 6 && r !== 17 && r !== 26) ROOM_MAP[r * COLS + c] = 9;
-          if (c === 15 && r >= 14 && r <= 30 && r !== 17 && r !== 26) ROOM_MAP[r * COLS + c] = 9;
-          if (r === 13 && c >= 15 && c <= 30 && c !== 22) ROOM_MAP[r * COLS + c] = 9;
-          if (r === 21 && c >= 15 && c <= 30 && c !== 23) ROOM_MAP[r * COLS + c] = 9;
-        }
-      }
-    }
-    initRoomMap();
-
-    function isTileZoneMatch(type, zoneKey) {
-      if (zoneKey === 'all') return true;
-      if (zoneKey === 'engineering' && type === 1) return true;
-      if (zoneKey === 'intelligence' && (type === 2 || type === 5)) return true;
-      if (zoneKey === 'executive' && type === 3) return true;
-      if (zoneKey === 'secops' && type === 4) return true;
-      if (zoneKey === 'cafe' && type === 6) return true;
-      return false;
-    }
-
-    function drawFloorTile(ctx, type, c, r, activeZone) {
-      const px = c * TILE_SIZE;
-      const py = r * TILE_SIZE;
-      const s = TILE_SIZE;
-
-      ctx.save();
-      const isZoneActive = isTileZoneMatch(type, activeZone);
-      if (activeZone !== 'all' && !isZoneActive && type !== 9 && type !== 0) {
-        ctx.globalAlpha = 0.35;
-      }
-
-      if (type === 9) {
-        ctx.fillStyle = '#1e222d';
-        ctx.fillRect(px, py, s, s);
-        ctx.fillStyle = '#2d3345';
-        ctx.fillRect(px, py, s, 4);
-        ctx.fillStyle = '#12141c';
-        ctx.fillRect(px, py + s - 3, s, 3);
-        ctx.restore();
+    // Preload all pixel art assets
+    function initPixelAssets(onReady) {
+      let keys = Object.keys(PIXEL_ASSETS_DATA);
+      if (keys.length === 0) {
+        // Fallback fetch from API if not inlined
+        fetch('/api/pixel-assets').then(r => r.json()).then(data => {
+          Object.assign(PIXEL_ASSETS_DATA, data);
+          initPixelAssets(onReady);
+        }).catch(e => console.error("Failed to load pixel assets:", e));
         return;
       }
 
-      if (type === 0) {
-        ctx.fillStyle = '#141418';
-        ctx.fillRect(px, py, s, s);
-        ctx.strokeStyle = '#1d1d24';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px + 0.5, py + 0.5, s - 1, s - 1);
-        if ((c + r) % 3 === 0) {
-          ctx.fillStyle = '#22222c';
-          ctx.fillRect(px + 4, py + 12, 16, 1);
-          ctx.fillRect(px + 18, py + 13, 8, 1);
-        }
-      } else if (type === 1) {
-        ctx.fillStyle = '#181b24';
-        ctx.fillRect(px, py, s, s);
-        ctx.strokeStyle = '#222634';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px + 0.5, py + 0.5, s - 1, s - 1);
-        ctx.fillStyle = '#2a3044';
-        ctx.fillRect(px + s/2 - 1, py + s/2 - 1, 2, 2);
-      } else if (type === 2) {
-        ctx.fillStyle = '#111722';
-        ctx.fillRect(px, py, s, s);
-        ctx.strokeStyle = '#1a2334';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px + 0.5, py + 0.5, s - 1, s - 1);
-        if (c % 2 === 0) {
-          ctx.fillStyle = 'rgba(2, 132, 199, 0.12)';
-          ctx.fillRect(px + 14, py, 4, s);
-        }
-      } else if (type === 3) {
-        ctx.fillStyle = '#221914';
-        ctx.fillRect(px, py, s, s);
-        ctx.strokeStyle = '#32231c';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px + 0.5, py + 0.5, s - 1, 7);
-        ctx.strokeRect(px + 0.5, py + 8.5, s - 1, 7);
-        ctx.strokeRect(px + 0.5, py + 16.5, s - 1, 7);
-        ctx.strokeRect(px + 0.5, py + 24.5, s - 1, 7);
-      } else if (type === 4) {
-        ctx.fillStyle = '#111319';
-        ctx.fillRect(px, py, s, s);
-        ctx.strokeStyle = '#1c202c';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px + 0.5, py + 0.5, s - 1, s - 1);
-        if (c === 16 || r === 22 || c === 30 || r === 30) {
-          ctx.fillStyle = '#d97706';
-          ctx.globalAlpha = 0.2;
-          ctx.fillRect(px, py, s, 2);
-        }
-      } else if (type === 5) {
-        ctx.fillStyle = '#261b12';
-        ctx.fillRect(px, py, s, s);
-        ctx.strokeStyle = '#38281a';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px + 0.5, py + 0.5, s/2 - 1, s - 1);
-        ctx.strokeRect(px + s/2 + 0.5, py + 0.5, s/2 - 1, s - 1);
-      } else if (type === 6) {
-        const isDark = (c + r) % 2 === 0;
-        ctx.fillStyle = isDark ? '#1a1614' : '#28221e';
-        ctx.fillRect(px, py, s, s);
-        ctx.strokeStyle = '#382e28';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(px + 0.5, py + 0.5, s - 1, s - 1);
-      }
-      ctx.restore();
+      let loadedCount = 0;
+      const total = keys.length;
+
+      keys.forEach(k => {
+        const img = new Image();
+        img.onload = () => {
+          loadedCount++;
+          if (loadedCount === total) {
+            setupTintedFloors();
+            pixelAssetsReady = true;
+            console.log("[PixelEngine] 71 authentic pixel assets loaded!");
+            if (onReady) onReady();
+          }
+        };
+        img.src = PIXEL_ASSETS_DATA[k];
+        PIXEL_IMAGES[k] = img;
+      });
     }
+
+    function createTintedFloor(origImg, rMul, gMul, bMul) {
+      const c = document.createElement('canvas');
+      c.width = 16; c.height = 16;
+      const cx = c.getContext('2d');
+      cx.drawImage(origImg, 0, 0);
+      const id = cx.getImageData(0, 0, 16, 16);
+      const d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = Math.min(255, d[i] * rMul);
+        d[i+1] = Math.min(255, d[i+1] * gMul);
+        d[i+2] = Math.min(255, d[i+2] * bMul);
+      }
+      cx.putImageData(id, 0, 0);
+      return c;
+    }
+
+    function setupTintedFloors() {
+      const woodImg = PIXEL_IMAGES['assets/floors/floor_0.png'];
+      const slateImg = PIXEL_IMAGES['assets/floors/floor_1.png'];
+      if (!woodImg || !slateImg) return;
+
+      fMahogany = createTintedFloor(woodImg, 1.1, 0.75, 0.55);  // War Room
+      fTechBlue = createTintedFloor(woodImg, 0.55, 0.75, 1.0);  // Recon
+      fEmerald  = createTintedFloor(woodImg, 0.6, 0.95, 0.75);  // Engineering
+      fAmber    = createTintedFloor(woodImg, 1.1, 0.9, 0.65);   // Knowledge
+      fViolet   = createTintedFloor(woodImg, 0.85, 0.7, 1.0);   // QA
+      fCorridor = createTintedFloor(slateImg, 0.75, 0.8, 0.9);  // Corridor
+    }
+
+    // 28 Specialized Agent Workstations (Discrete 48x32 Grid, TILE_SIZE = 16px)
+    const OFFICE_STATIONS = [
+      // 1. Executive Suite / War Room (3 Stations)
+      { id: 'exec_1', col: 6, row: 7, dir: 'right', dept: 'executive', title: 'Lead Orchestrator (Root)', defaultTool: 'invoke_subagent', toolSummary: 'Autonomous Primary Loop & Strategy', status: 'WORKING', isPrimary: true },
+      { id: 'exec_2', col: 10, row: 7, dir: 'left', dept: 'executive', title: 'Strategic Advisor', defaultTool: 'sync_plan', toolSummary: 'High-Level Architectural Review', status: 'IN_MEETING' },
+      { id: 'exec_3', col: 6, row: 9, dir: 'right', dept: 'executive', title: 'Chief Systems Architect', defaultTool: 'break', toolSummary: 'System Blueprinting & Roadmap', status: 'STANDBY' },
+
+      // 2. Intelligence & Recon Lab (4 Stations)
+      { id: 'lab_1', col: 19, row: 6, dir: 'up', dept: 'intelligence', title: 'Model Evaluator', defaultTool: 'eval_prompt', toolSummary: 'Prompt Perplexity & Reasoning Audit', status: 'WORKING' },
+      { id: 'lab_2', col: 25, row: 6, dir: 'up', dept: 'intelligence', title: 'Knowledge Miner', defaultTool: 'grep_search', toolSummary: 'DemusBrain Vault Indexing & MOC Sync', status: 'WORKING' },
+      { id: 'lab_3', col: 19, row: 10, dir: 'up', dept: 'intelligence', title: 'Server Infra SRE', defaultTool: 'psutil_check', toolSummary: 'Hardware Telemetry & Process Watcher', status: 'WORKING' },
+      { id: 'lab_4', col: 25, row: 10, dir: 'up', dept: 'intelligence', title: 'Data Pipeline Analyst', defaultTool: 'view_file', toolSummary: 'Telemetry & Token Flow Lineage Audit', status: 'IN_MEETING' },
+
+      // 3. Autonomous Engineering Hub (8 Stations)
+      { id: 'eng_1', col: 34, row: 5, dir: 'up', dept: 'engineering', title: 'Frontend Engineer', defaultTool: 'write_to_file', toolSummary: 'UI & Micro-Interactions (React Bits)', status: 'WORKING' },
+      { id: 'eng_2', col: 39, row: 5, dir: 'up', dept: 'engineering', title: 'Backend Core Dev', defaultTool: 'run_command', toolSummary: 'FastAPI / WebSocket Pipeline', status: 'WORKING' },
+      { id: 'eng_3', col: 43, row: 5, dir: 'up', dept: 'engineering', title: 'Systems Refactorer', defaultTool: 'replace_file_content', toolSummary: 'Surgical Edits & AST Optimization', status: 'WORKING' },
+      { id: 'eng_8', col: 39, row: 12, dir: 'up', dept: 'engineering', title: 'Release Automator', defaultTool: 'run_command', toolSummary: 'GitHub Actions Release & Distribution', status: 'WORKING' },
+      { id: 'eng_4', col: 34, row: 9, dir: 'up', dept: 'engineering', title: 'DevOps & SRE', defaultTool: 'manage_task', toolSummary: 'CI/CD Pipeline & Windows PyInstaller', status: 'WORKING' },
+      { id: 'eng_5', col: 39, row: 9, dir: 'up', dept: 'engineering', title: 'Fullstack Engineer', defaultTool: 'write_to_file', toolSummary: 'Feature Integration & DoD Validation', status: 'WORKING' },
+      { id: 'eng_6', col: 43, row: 9, dir: 'up', dept: 'engineering', title: 'Algorithm Specialist', defaultTool: 'eval_metric', toolSummary: 'Performance Tuning & Latency Benchmarks', status: 'WORKING' },
+      { id: 'eng_7', col: 34, row: 12, dir: 'up', dept: 'engineering', title: 'Lead Architect', defaultTool: 'view_file', toolSummary: 'Codebase Verification & Quality Standard', status: 'WORKING' },
+
+      // 4. Knowledge Vault & Library (2 Stations)
+      { id: 'lib_1', col: 5, row: 23, dir: 'up', dept: 'intelligence', title: 'Research Fellow', defaultTool: 'read_url_content', toolSummary: 'Technical RFC & Academic Paper Review', status: 'WORKING' },
+      { id: 'lib_2', col: 10, row: 23, dir: 'up', dept: 'intelligence', title: 'Docs Archivist', defaultTool: 'write_to_file', toolSummary: 'Permanent Knowledge Compounding', status: 'STANDBY' },
+
+      // 5. QA, Verification & SecOps (8 Stations)
+      { id: 'sec_6', col: 19, row: 22, dir: 'up', dept: 'secops', title: 'QA Audit Lead', defaultTool: 'dod_verify', toolSummary: 'Definition of Done Verification', status: 'WORKING' },
+      { id: 'sec_7', col: 25, row: 22, dir: 'up', dept: 'secops', title: 'Code Validator', defaultTool: 'lint_check', toolSummary: 'Syntax, TypeCheck & Linter Enforcement', status: 'WORKING' },
+      { id: 'sec_8', col: 19, row: 26, dir: 'up', dept: 'secops', title: 'DAG Supervisor', defaultTool: 'dag_watch', toolSummary: 'Subagent Lifecycle & Process Supervisor', status: 'WORKING' },
+      { id: 'sec_5', col: 25, row: 26, dir: 'up', dept: 'secops', title: 'Incident Commander', defaultTool: 'war_room', toolSummary: 'Incident Triage & War Room Lead', status: 'WORKING' },
+      { id: 'sec_1', col: 10, row: 9, dir: 'left', dept: 'secops', title: 'Security Sentinel', defaultTool: 'threat_watch', toolSummary: 'Threat Monitoring & Zero-Trust Verification', status: 'IN_MEETING' },
+      { id: 'sec_2', col: 6, row: 11, dir: 'right', dept: 'secops', title: 'Penetration Tester', defaultTool: 'vuln_probe', toolSummary: 'Attack Surface Enumeration & Fuzzing', status: 'IN_MEETING' },
+      { id: 'sec_3', col: 10, row: 11, dir: 'left', dept: 'secops', title: 'Red Team Hunter', defaultTool: 'audit_chain', toolSummary: 'Defensive Security Triage & Exploit Analysis', status: 'IN_MEETING' },
+      { id: 'sec_4', col: 8, row: 11, dir: 'up', dept: 'secops', title: 'Compliance Guard', defaultTool: 'cred_check', toolSummary: 'Zero-Leak & DPAPI Enforcer', status: 'IN_MEETING' },
+
+      // 6. Breakroom & Lounge (3 Stations)
+      { id: 'cafe_1', col: 34, row: 20, dir: 'down', dept: 'executive', title: 'Espresso Standby Agent', defaultTool: 'break', toolSummary: 'Espresso Break & Brainstorming', status: 'STANDBY' },
+      { id: 'cafe_2', col: 38, row: 23, dir: 'right', dept: 'engineering', title: 'Standby Developer', defaultTool: 'break', toolSummary: 'Code Review & Coffee Chat', status: 'STANDBY' },
+      { id: 'cafe_3', col: 42, row: 23, dir: 'left', dept: 'secops', title: 'Standby Sentinel', defaultTool: 'break', toolSummary: 'Recharge & Standby Watch', status: 'STANDBY' }
+    ];
 
     // Clean Role Map for Badges
     const ROLE_BADGE_MAP = {
@@ -1738,459 +1656,75 @@ HTML_INTERFACE = """<!DOCTYPE html>
       return rawRole.replace(' (Root)', '').replace(' Engineer', ' Dev');
     }
 
-    // --- CANVAS PIXEL ART RENDERING ROUTINES ---
+    // --- CANVAS ENGINE CONTROLLER & MAIN LOOP ---
+    let pixelOfficeCanvas = null;
+    let pixelOfficeCtx = null;
+    let pixelOfficeAnimationId = null;
+    let pixelOfficeFrame = 0;
+    let pixelOfficeStations = [];
+    let pixelOfficeHoverIdx = -1;
 
-    // Furniture Entities Definition (Desks, Tables, Server Racks, Bookcases)
-    const FURNITURE_ENTITIES = [
-      // Engineering Desks (Row 1 & 2)
-      { id: 'f_eng_desk_1', col: 16, row: 3, w: 3, h: 2, type: 'ENG_DESK', dept: 'engineering' },
-      { id: 'f_eng_desk_2', col: 20, row: 3, w: 3, h: 2, type: 'ENG_DESK', dept: 'engineering' },
-      { id: 'f_eng_desk_3', col: 24, row: 3, w: 3, h: 2, type: 'ENG_DESK', dept: 'engineering' },
-      { id: 'f_eng_desk_4', col: 27, row: 3, w: 3, h: 2, type: 'ENG_DESK', dept: 'engineering' },
+    const CANVAS_W = 768;
+    const CANVAS_H = 512;
+    const COLS = 48;
+    const ROWS = 32;
+    const TILE_SIZE = 16;
 
-      { id: 'f_eng_desk_5', col: 16, row: 8, w: 3, h: 2, type: 'ENG_DESK', dept: 'engineering' },
-      { id: 'f_eng_desk_6', col: 20, row: 8, w: 3, h: 2, type: 'ENG_DESK', dept: 'engineering' },
-      { id: 'f_eng_desk_7', col: 24, row: 8, w: 3, h: 2, type: 'ENG_DESK', dept: 'engineering' },
-      { id: 'f_eng_desk_8', col: 27, row: 8, w: 3, h: 2, type: 'ENG_DESK', dept: 'engineering' },
-
-      // AI Lab Servers & Desks
-      { id: 'f_lab_server_1', col: 2, row: 2, w: 1, h: 3, type: 'SERVER_RACK', dept: 'intelligence' },
-      { id: 'f_lab_server_2', col: 2, row: 6, w: 1, h: 3, type: 'SERVER_RACK', dept: 'intelligence' },
-      { id: 'f_lab_desk_1', col: 4, row: 3, w: 3, h: 2, type: 'LAB_DESK', dept: 'intelligence' },
-      { id: 'f_lab_desk_2', col: 8, row: 3, w: 3, h: 2, type: 'LAB_DESK', dept: 'intelligence' },
-      { id: 'f_lab_desk_3', col: 4, row: 8, w: 3, h: 2, type: 'LAB_DESK', dept: 'intelligence' },
-      { id: 'f_lab_desk_4', col: 8, row: 8, w: 3, h: 2, type: 'LAB_DESK', dept: 'intelligence' },
-
-      // Exec Suite: Executive Mahogany Desk (Root)
-      { id: 'f_exec_desk_root', col: 5, row: 25, w: 5, h: 2, type: 'EXEC_MAHOGANY_DESK', dept: 'executive' },
-      { id: 'f_exec_bookcase_1', col: 2, row: 23, w: 2, h: 3, type: 'BOOKCASE', dept: 'executive' },
-      { id: 'f_exec_plant_1', col: 11, row: 23, w: 1, h: 2, type: 'PLANT', dept: 'executive' },
-      { id: 'f_exec_desk_adv', col: 4, row: 28, w: 3, h: 2, type: 'ENG_DESK', dept: 'executive' },
-      { id: 'f_exec_desk_arch', col: 8, row: 28, w: 3, h: 2, type: 'ENG_DESK', dept: 'executive' },
-
-      // Library: Bookcases & Reading Table
-      { id: 'f_lib_bookcase_1', col: 3, row: 14, w: 3, h: 2, type: 'BOOKCASE', dept: 'intelligence' },
-      { id: 'f_lib_bookcase_2', col: 8, row: 14, w: 3, h: 2, type: 'BOOKCASE', dept: 'intelligence' },
-      { id: 'f_lib_table', col: 6, row: 16, w: 3, h: 2, type: 'READING_TABLE', dept: 'intelligence' },
-
-      // Cafeteria: Espresso Bar & Tables
-      { id: 'f_cafe_bar', col: 22, row: 14, w: 5, h: 2, type: 'ESPRESSO_BAR', dept: 'cafe' },
-      { id: 'f_cafe_table', col: 23, row: 18, w: 3, h: 2, type: 'CAFE_TABLE', dept: 'cafe' },
-
-      // SecOps War Room: Tactical Octagonal Conference Table
-      { id: 'f_war_table', col: 20, row: 24, w: 8, h: 4, type: 'WAR_ROOM_TABLE', dept: 'secops' }
+    // Room boundaries & metadata
+    const ROOMS = [
+      { id: 'executive', name: 'WAR ROOM', c1: 2, r1: 1, c2: 15, r2: 14, getTex: () => fMahogany },
+      { id: 'intelligence', name: 'RECON & INTEL', c1: 17, r1: 1, c2: 30, r2: 14, getTex: () => fTechBlue },
+      { id: 'engineering', name: 'ENGINEERING', c1: 32, r1: 1, c2: 46, r2: 14, getTex: () => fEmerald },
+      { id: 'intelligence', name: 'KNOWLEDGE VAULT', c1: 2, r1: 17, c2: 15, r2: 30, getTex: () => fAmber },
+      { id: 'secops', name: 'QA & VERIFY', c1: 17, r1: 17, c2: 30, r2: 30, getTex: () => fViolet },
+      { id: 'cafe', name: 'BREAKROOM & LOUNGE', c1: 32, r1: 17, c2: 46, r2: 30, getTex: () => PIXEL_IMAGES['assets/floors/floor_2.png'] }
     ];
 
-    // Chair Rendering
-    function drawChair(ctx, px, py, dir, dept, isPrimary) {
-      ctx.save();
-      const chairBack = isPrimary ? '#1e1b18' : (dept === 'secops' ? '#141419' : (dept === 'executive' ? '#2e1c14' : '#181824'));
-      const chairTrim = isPrimary ? '#d97706' : (dept === 'engineering' ? '#4338ca' : (dept === 'secops' ? '#38bdf8' : '#27273a'));
+    function isRoomActive(roomId) {
+      if (activeZoneFilter === 'all') return true;
+      if (activeZoneFilter === roomId) return true;
+      if (activeZoneFilter === 'cafe' && roomId === 'cafe') return true;
+      return false;
+    }
 
-      if (dir === 'down') {
-        // High backrest behind shoulders
-        ctx.fillStyle = chairBack;
-        ctx.fillRect(px - 8, py - 14, 16, 10);
-        ctx.fillStyle = chairTrim;
-        ctx.fillRect(px - 9, py - 14, 1, 10);
-        ctx.fillRect(px + 8, py - 14, 1, 10);
-        ctx.fillRect(px - 8, py - 15, 16, 1);
-        // Armrests
-        ctx.fillStyle = '#222230';
-        ctx.fillRect(px - 10, py - 6, 2, 7);
-        ctx.fillRect(px + 8, py - 6, 2, 7);
-      } else if (dir === 'up') {
-        // Swivel base & armrests visible behind seated character
-        ctx.fillStyle = '#101218';
-        ctx.fillRect(px - 7, py + 2, 14, 4);
-        ctx.fillStyle = chairTrim;
-        ctx.fillRect(px - 7, py + 5, 14, 1.5);
-        // Stem & wheels
-        ctx.fillStyle = '#0a0a0f';
-        ctx.fillRect(px - 1, py + 6, 2, 4);
-        ctx.fillRect(px - 5, py + 9, 10, 2);
-      } else if (dir === 'right') {
-        // Chair back on the left
-        ctx.fillStyle = chairBack;
-        ctx.fillRect(px - 10, py - 10, 3, 14);
-        ctx.fillStyle = chairTrim;
-        ctx.fillRect(px - 11, py - 10, 1, 14);
-        // Cushion
-        ctx.fillStyle = '#222230';
-        ctx.fillRect(px - 7, py + 1, 8, 3);
-      } else if (dir === 'left') {
-        // Chair back on the right
-        ctx.fillStyle = chairBack;
-        ctx.fillRect(px + 7, py - 10, 3, 14);
-        ctx.fillStyle = chairTrim;
-        ctx.fillRect(px + 10, py - 10, 1, 14);
-        // Cushion
-        ctx.fillStyle = '#222230';
-        ctx.fillRect(px - 1, py + 1, 8, 3);
+    function drawCharFrame(ctx, charIdx, dir, action, frame, dx, dy) {
+      const charImg = PIXEL_IMAGES[`assets/characters/char_${charIdx % 6}.png`];
+      if (!charImg) return;
+      const dirRows = { 'down': 0, 'up': 1, 'right': 2, 'left': 2 };
+      const rowY = (dirRows[dir] || 0) * 32;
+      let frameX = 0;
+      if (action === 'walk') frameX = (frame % 4) * 16;
+      else if (action === 'typing') frameX = (4 + (frame % 2)) * 16;
+      else frameX = 6 * 16;
+
+      ctx.save();
+      if (dir === 'left') {
+        ctx.translate(dx + 16, dy);
+        ctx.scale(-1, 1);
+        ctx.drawImage(charImg, frameX, rowY, 16, 32, 0, 0, 16, 32);
+      } else {
+        ctx.drawImage(charImg, frameX, rowY, 16, 32, dx, dy, 16, 32);
       }
       ctx.restore();
     }
 
-    // Character Sprite Rendering
-    function drawPixelCharacter(ctx, px, py, dir, dept, status, isParent, frame, isHovered, sIdx) {
+    function drawHoverReticle(ctx, px, py) {
       ctx.save();
-      let suitColor = '#1e3a8a';
-      let hairColor = '#0f172a';
-      let skinColor = (sIdx % 2 === 0) ? '#f5c697' : '#e0a97d';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      const rw = 22, rh = 28;
+      const rx = px - rw / 2;
+      const ry = py - 18;
 
-      if (dept === 'executive') suitColor = isParent ? '#1e1b4b' : '#312e81';
-      else if (dept === 'engineering') suitColor = (sIdx % 2 === 0) ? '#4c1d95' : '#2563eb';
-      else if (dept === 'intelligence') suitColor = '#064e3b';
-      else if (dept === 'secops') suitColor = '#78350f';
-
-      const isWorking = (status === 'WORKING');
-      const breathe = isWorking ? Math.sin(frame * 0.15) * 0.8 : 0;
-      const typeWiggle = isWorking ? Math.sin(frame * 0.4) * 0.7 : 0;
-
-      // Draw Chair first
-      drawChair(ctx, px, py, dir, dept, isParent);
-
-      // Draw Head
-      ctx.fillStyle = hairColor;
-      ctx.fillRect(px - 5, py - 16 + breathe, 10, 5);
-      ctx.fillStyle = skinColor;
-      ctx.fillRect(px - 4, py - 11 + breathe, 8, 5);
-
-      if (dir === 'down') {
-        // Eyes
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(px - 2, py - 9 + breathe, 1.5, 2);
-        ctx.fillRect(px + 1.5, py - 9 + breathe, 1.5, 2);
-        // Torso & Tie
-        ctx.fillStyle = suitColor;
-        ctx.fillRect(px - 6, py - 6 + breathe, 12, 8);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(px - 1, py - 6 + breathe, 2, 4);
-        ctx.fillStyle = isParent ? '#ef4444' : '#38bdf8';
-        ctx.fillRect(px - 0.5, py - 4 + breathe, 1, 4);
-      } else if (dir === 'up') {
-        // Back of head
-        ctx.fillStyle = hairColor;
-        ctx.fillRect(px - 5, py - 13 + breathe, 10, 7);
-        // Torso
-        ctx.fillStyle = suitColor;
-        ctx.fillRect(px - 6, py - 6 + breathe, 12, 7);
-      } else if (dir === 'right') {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(px + 2, py - 9 + breathe, 1.5, 2);
-        ctx.fillStyle = suitColor;
-        ctx.fillRect(px - 5, py - 6 + breathe, 10, 8);
-      } else if (dir === 'left') {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(px - 3.5, py - 9 + breathe, 1.5, 2);
-        ctx.fillStyle = suitColor;
-        ctx.fillRect(px - 5, py - 6 + breathe, 10, 8);
-      }
-
-      // Hands typing
-      if (isWorking) {
-        ctx.fillStyle = skinColor;
-        if (dir === 'up') {
-          ctx.fillRect(px - 5 + typeWiggle, py - 8, 2, 2);
-          ctx.fillRect(px + 3 - typeWiggle, py - 8, 2, 2);
-        } else if (dir === 'down') {
-          ctx.fillRect(px - 5, py + 2 + typeWiggle, 2, 2);
-          ctx.fillRect(px + 3, py + 2 - typeWiggle, 2, 2);
-        } else if (dir === 'right') {
-          ctx.fillRect(px + 4 + typeWiggle, py - 1, 2, 2);
-        } else if (dir === 'left') {
-          ctx.fillRect(px - 6 - typeWiggle, py - 1, 2, 2);
-        }
-      }
-
-      ctx.restore();
-    }
-
-    // Furniture Drawing Routines
-    function drawFurniture(ctx, f, frame, isFrontLayer) {
-      const px = f.col * TILE_SIZE;
-      const py = f.row * TILE_SIZE;
-      const w = f.w * TILE_SIZE;
-      const h = f.h * TILE_SIZE;
-
-      ctx.save();
-      if (f.type === 'ENG_DESK') {
-        if (!isFrontLayer) {
-          // Desk shadow & rear legs
-          ctx.fillStyle = '#0e1017';
-          ctx.fillRect(px + 2, py + 4, w - 4, h - 8);
-        } else {
-          // Front layer: Desk surface & Multi-Monitors
-          ctx.fillStyle = '#262a38';
-          ctx.fillRect(px + 4, py + 16, w - 8, 14);
-          ctx.fillStyle = '#1c1f2b';
-          ctx.fillRect(px + 4, py + 28, w - 8, 2); // Edge bevel
-
-          // Keyboard & mouse
-          ctx.fillStyle = '#11131a';
-          ctx.fillRect(px + 36, py + 19, 22, 7);
-          ctx.fillStyle = '#475569';
-          ctx.fillRect(px + 62, py + 20, 5, 5);
-
-          // 3 Monitors
-          ctx.fillStyle = '#0d0e14';
-          ctx.fillRect(px + 6, py - 2, 18, 14);  // Left monitor
-          ctx.fillRect(px + 28, py - 6, 26, 18); // Center main monitor
-          ctx.fillRect(px + 58, py - 2, 18, 14); // Right monitor
-
-          // Screens
-          ctx.fillStyle = '#0284c7';
-          ctx.fillRect(px + 8, py, 14, 10);
-          ctx.fillStyle = '#10b981';
-          ctx.fillRect(px + 30, py - 4, 22, 14);
-          ctx.fillStyle = '#7c3aed';
-          ctx.fillRect(px + 60, py, 14, 10);
-
-          // Animated code scanline
-          ctx.fillStyle = 'rgba(255,255,255,0.4)';
-          const scan = (frame * 1.5) % 12;
-          ctx.fillRect(px + 31, py - 3 + scan, 20, 1);
-        }
-      } else if (f.type === 'LAB_DESK') {
-        if (!isFrontLayer) {
-          ctx.fillStyle = '#0a0d14';
-          ctx.fillRect(px + 2, py + 4, w - 4, h - 8);
-        } else {
-          // Cyber lab desk: Dark composite with neon cyan trim
-          ctx.fillStyle = '#1a2233';
-          ctx.fillRect(px + 4, py + 16, w - 8, 14);
-          ctx.fillStyle = '#0284c7';
-          ctx.fillRect(px + 4, py + 28, w - 8, 1.5);
-
-          // Curved Dual Ultra-wide Lab Monitors
-          ctx.fillStyle = '#0a0d14';
-          ctx.fillRect(px + 10, py - 6, 34, 18);
-          ctx.fillRect(px + 48, py - 4, 28, 16);
-
-          // Cyan diagnostic screen
-          ctx.fillStyle = '#0369a1';
-          ctx.fillRect(px + 12, py - 4, 30, 14);
-          ctx.fillStyle = '#065f46';
-          ctx.fillRect(px + 50, py - 2, 24, 12);
-
-          // Animated waveform line
-          ctx.strokeStyle = '#38bdf8';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          for (let pt = 0; pt < 26; pt += 3) {
-            const wy = py + 3 + Math.sin(frame * 0.2 + pt) * 3;
-            if (pt === 0) ctx.moveTo(px + 14 + pt, wy);
-            else ctx.lineTo(px + 14 + pt, wy);
-          }
-          ctx.stroke();
-        }
-      } else if (f.type === 'EXEC_MAHOGANY_DESK') {
-        if (!isFrontLayer) {
-          // Leather chair behind
-          ctx.fillStyle = '#2d1810';
-          ctx.fillRect(px + w/2 - 12, py - 18, 24, 22);
-          ctx.fillStyle = '#d97706';
-          ctx.fillRect(px + w/2 - 12, py - 19, 24, 1);
-        } else {
-          // Executive Desk Front (Rich mahogany)
-          ctx.fillStyle = '#3e1d13';
-          ctx.fillRect(px + 8, py + 4, w - 16, 24);
-          ctx.fillStyle = '#542618';
-          ctx.fillRect(px + 6, py + 2, w - 12, 4);
-
-          // Green desk blotter in center
-          ctx.fillStyle = '#1b4332';
-          ctx.fillRect(px + 48, py + 6, 48, 14);
-          ctx.strokeStyle = '#d4af37';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(px + 48.5, py + 6.5, 47, 13);
-
-          // Executive laptop
-          ctx.fillStyle = '#475569';
-          ctx.fillRect(px + 62, py + 8, 20, 9);
-          ctx.fillStyle = '#38bdf8';
-          ctx.fillRect(px + 64, py + 9, 16, 7);
-
-          // Brass Desk Lamp with soft light
-          ctx.fillStyle = '#d4af37';
-          ctx.fillRect(px + 20, py + 6, 6, 12);
-          ctx.fillStyle = '#fef08a';
-          ctx.beginPath();
-          ctx.arc(px + 23, py + 6, 4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      } else if (f.type === 'WAR_ROOM_TABLE') {
-        if (!isFrontLayer) {
-          ctx.fillStyle = 'rgba(0,0,0,0.6)';
-          ctx.beginPath();
-          ctx.ellipse(px + w/2, py + h/2 + 6, w/2 - 4, h/2 - 4, 0, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          // Tactical Octagonal Composite Table
-          ctx.fillStyle = '#1e2430';
-          ctx.beginPath();
-          ctx.ellipse(px + w/2, py + h/2, w/2 - 6, h/2 - 6, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Beveled rim
-          ctx.strokeStyle = '#334155';
-          ctx.lineWidth = 3;
-          ctx.stroke();
-
-          // Cyan perimeter glow line
-          ctx.strokeStyle = '#0284c7';
-          ctx.lineWidth = 1;
-          ctx.stroke();
-
-          // 8 Individual Terminal screens around the rim
-          const seatAngles = [
-            -Math.PI/2 - 0.4, -Math.PI/2, -Math.PI/2 + 0.4, // North (sec_1, sec_2, sec_8)
-            Math.PI,                                         // West (sec_7)
-            0,                                               // East (sec_3)
-            Math.PI/2 - 0.4, Math.PI/2, Math.PI/2 + 0.4     // South (sec_6, sec_5, sec_4)
-          ];
-          seatAngles.forEach((ang) => {
-            const sx = px + w/2 + Math.cos(ang) * (w/2 - 16);
-            const sy = py + h/2 + Math.sin(ang) * (h/2 - 14);
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(sx - 5, sy - 3, 10, 6);
-            ctx.fillStyle = '#38bdf8';
-            ctx.fillRect(sx - 4, sy - 2, 8, 4);
-          });
-
-          // Central Tactical Holographic Radar
-          const pulse = (frame * 0.05) % 1;
-          ctx.strokeStyle = 'rgba(56, 189, 248, ' + (1 - pulse) + ')';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.arc(px + w/2, py + h/2, 8 + pulse * 24, 0, Math.PI * 2);
-          ctx.stroke();
-
-          // Inner stable radar ring
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.arc(px + w/2, py + h/2, 14, 0, Math.PI * 2);
-          ctx.stroke();
-
-          // Rotating radar line
-          const angle = frame * 0.08;
-          ctx.strokeStyle = '#38bdf8';
-          ctx.beginPath();
-          ctx.moveTo(px + w/2, py + h/2);
-          ctx.lineTo(px + w/2 + Math.cos(angle) * 26, py + h/2 + Math.sin(angle) * 26);
-          ctx.stroke();
-        }
-      } else if (f.type === 'SERVER_RACK') {
-        if (isFrontLayer) {
-          ctx.fillStyle = '#0f1117';
-          ctx.fillRect(px + 4, py + 4, w - 8, h - 8);
-          ctx.strokeStyle = '#232936';
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(px + 4.5, py + 4.5, w - 9, h - 9);
-          for (let u = 0; u < 8; u++) {
-            const uy = py + 8 + u * 10;
-            ctx.fillStyle = '#171b26';
-            ctx.fillRect(px + 8, uy, w - 16, 8);
-            const led1 = Math.sin(frame * 0.3 + u) > 0 ? '#10b981' : '#044e3b';
-            ctx.fillStyle = led1;
-            ctx.fillRect(px + 10, uy + 3, 2, 2);
-            const led2 = Math.cos(frame * 0.2 + u * 2) > 0 ? '#38bdf8' : '#0369a1';
-            ctx.fillStyle = led2;
-            ctx.fillRect(px + 14, uy + 3, 2, 2);
-            const led3 = (frame + u * 3) % 10 < 3 ? '#f59e0b' : '#78350f';
-            ctx.fillStyle = led3;
-            ctx.fillRect(px + 18, uy + 3, 2, 2);
-          }
-        }
-      } else if (f.type === 'ESPRESSO_BAR') {
-        if (isFrontLayer) {
-          // Counter bar
-          ctx.fillStyle = '#451a03';
-          ctx.fillRect(px + 4, py + 12, w - 8, h - 16);
-          // Steel top
-          ctx.fillStyle = '#94a3b8';
-          ctx.fillRect(px + 2, py + 8, w - 4, 6);
-          // Espresso Machine
-          ctx.fillStyle = '#e2e8f0';
-          ctx.fillRect(px + 36, py - 4, 28, 16);
-          ctx.fillStyle = '#0f172a';
-          ctx.fillRect(px + 40, py + 2, 10, 4); // Portafilter
-          // Rising steam particles
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-          for (let s = 0; s < 3; s++) {
-            const sy = (py - 6 - ((frame * 0.8 + s * 8) % 16));
-            const sx = px + 42 + Math.sin(frame * 0.2 + s) * 3;
-            ctx.fillRect(sx, sy, 2, 2);
-          }
-        }
-      } else if (f.type === 'BOOKCASE') {
-        if (isFrontLayer) {
-          ctx.fillStyle = '#451a03';
-          ctx.fillRect(px + 2, py + 2, w - 4, h - 4);
-          ctx.strokeStyle = '#78350f';
-          ctx.strokeRect(px + 2.5, py + 2.5, w - 5, h - 5);
-          const bookColors = ['#dc2626', '#2563eb', '#16a34a', '#d97706', '#9333ea', '#e2e8f0'];
-          for (let sh = 0; sh < 3; sh++) {
-            const shy = py + 6 + sh * 18;
-            ctx.fillStyle = '#291102';
-            ctx.fillRect(px + 4, shy + 12, w - 8, 2);
-            for (let b = 0; b < 8; b++) {
-              ctx.fillStyle = bookColors[(b + sh) % bookColors.length];
-              ctx.fillRect(px + 6 + b * 10, shy, 8, 12);
-            }
-          }
-        }
-      } else if (f.type === 'READING_TABLE') {
-        if (isFrontLayer) {
-          // Warm wood reading table with study lamps
-          ctx.fillStyle = '#3a2312';
-          ctx.fillRect(px + 4, py + 8, w - 8, h - 14);
-          ctx.fillStyle = '#5c381e';
-          ctx.fillRect(px + 2, py + 6, w - 4, 4);
-          // Books on table
-          ctx.fillStyle = '#dc2626';
-          ctx.fillRect(px + 16, py + 14, 14, 10);
-          ctx.fillStyle = '#2563eb';
-          ctx.fillRect(px + 36, py + 15, 14, 10);
-          // Green banker's lamp
-          ctx.fillStyle = '#15803d';
-          ctx.fillRect(px + w/2 - 6, py + 8, 12, 5);
-        }
-      } else if (f.type === 'CAFE_TABLE') {
-        if (isFrontLayer) {
-          // Round dining table
-          ctx.fillStyle = '#451a03';
-          ctx.beginPath();
-          ctx.arc(px + w/2, py + h/2, 24, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#78350f';
-          ctx.beginPath();
-          ctx.arc(px + w/2, py + h/2, 21, 0, Math.PI * 2);
-          ctx.fill();
-          // Coffee mugs
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(px + w/2 - 12, py + h/2 - 4, 6, 6);
-          ctx.fillRect(px + w/2 + 6, py + h/2 - 4, 6, 6);
-        }
-      } else if (f.type === 'PLANT') {
-        if (isFrontLayer) {
-          // Terracotta pot
-          ctx.fillStyle = '#c2410c';
-          ctx.fillRect(px + 8, py + 16, 16, 12);
-          ctx.fillStyle = '#9a3412';
-          ctx.fillRect(px + 6, py + 14, 20, 4);
-          // Leaves
-          ctx.fillStyle = '#15803d';
-          ctx.beginPath();
-          ctx.arc(px + 16, py + 10, 10, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#22c55e';
-          ctx.beginPath();
-          ctx.arc(px + 14, py + 8, 6, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
+      const len = 4;
+      // Top-Left
+      ctx.beginPath(); ctx.moveTo(rx, ry + len); ctx.lineTo(rx, ry); ctx.lineTo(rx + len, ry); ctx.stroke();
+      // Top-Right
+      ctx.beginPath(); ctx.moveTo(rx + rw - len, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + len); ctx.stroke();
+      // Bottom-Left
+      ctx.beginPath(); ctx.moveTo(rx, ry + rh - len); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx + len, ry + rh); ctx.stroke();
+      // Bottom-Right
+      ctx.beginPath(); ctx.moveTo(rx + rw - len, ry + rh); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw, ry + rh - len); ctx.stroke();
       ctx.restore();
     }
 
@@ -2199,84 +1733,70 @@ HTML_INTERFACE = """<!DOCTYPE html>
       const rawTitle = staff.role || slot.title || 'Staff Agent';
       const roleText = getFormattedRole(rawTitle);
 
-      // Status Dot Color
       let dotColor = '#10b981';
       if (staff.desk_status === 'IN_MEETING') dotColor = '#f59e0b';
       else if (staff.desk_status === 'STANDBY') dotColor = '#94a3b8';
       else if (staff.desk_status === 'BLOCKED') dotColor = '#ef4444';
 
-      // Badge Border Color per Dept
       let borderColor = 'rgba(255,255,255,0.15)';
       if (slot.dept === 'executive') borderColor = 'rgba(59, 130, 246, 0.5)';
       else if (slot.dept === 'engineering') borderColor = 'rgba(168, 85, 247, 0.5)';
       else if (slot.dept === 'intelligence') borderColor = 'rgba(16, 185, 129, 0.5)';
       else if (slot.dept === 'secops') borderColor = 'rgba(245, 158, 11, 0.5)';
 
-      ctx.font = '600 8.5px "JetBrains Mono", Consolas, monospace';
+      ctx.font = '600 7.5px "JetBrains Mono", Consolas, monospace';
       const textWidth = ctx.measureText(roleText).width;
-      const badgeW = textWidth + 16;
-      const badgeH = 14;
+      const badgeW = textWidth + 14;
+      const badgeH = 12;
       const badgeX = px - (badgeW / 2);
-      const badgeY = py - 28;
+      const badgeY = py - 24;
 
-      // Background pill
-      ctx.fillStyle = isHovered ? 'rgba(18, 18, 28, 0.95)' : 'rgba(10, 10, 15, 0.9)';
+      ctx.fillStyle = isHovered ? 'rgba(18, 18, 28, 0.95)' : 'rgba(10, 10, 15, 0.85)';
       ctx.beginPath();
-      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+      if (ctx.roundRect) ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
+      else ctx.rect(badgeX, badgeY, badgeW, badgeH);
       ctx.fill();
 
-      // Border
       ctx.strokeStyle = isHovered ? '#38bdf8' : borderColor;
       ctx.lineWidth = isHovered ? 1.5 : 1;
       ctx.stroke();
 
-      // Pulsing status dot
       const isWorking = (staff.desk_status === 'WORKING');
-      const pulseSize = isWorking ? (1.5 + 0.5 * Math.sin(frame * 0.2)) : 1.5;
+      const pulseSize = isWorking ? (1.5 + 0.4 * Math.sin(frame * 0.2)) : 1.5;
       ctx.fillStyle = dotColor;
       ctx.beginPath();
-      ctx.arc(badgeX + 6, badgeY + (badgeH / 2), pulseSize, 0, Math.PI * 2);
+      ctx.arc(badgeX + 5, badgeY + (badgeH / 2), pulseSize, 0, Math.PI * 2);
       ctx.fill();
 
-      // Text
       ctx.fillStyle = isHovered ? '#ffffff' : '#e2e8f0';
       ctx.textBaseline = 'middle';
-      ctx.fillText(roleText, badgeX + 11, badgeY + (badgeH / 2) + 0.5);
-
+      ctx.fillText(roleText, badgeX + 9, badgeY + (badgeH / 2) + 0.5);
       ctx.restore();
     }
 
-    function drawHoverReticle(ctx, px, py, dir) {
+    function drawMiniStatusDot(ctx, px, py, staff, frame) {
       ctx.save();
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 1.5;
-      const rw = 22, rh = 20;
-      const rx = px - rw / 2;
-      const ry = py - 12;
+      let dotColor = '#10b981';
+      if (staff.desk_status === 'IN_MEETING') dotColor = '#f59e0b';
+      else if (staff.desk_status === 'STANDBY') dotColor = '#94a3b8';
+      else if (staff.desk_status === 'BLOCKED') dotColor = '#ef4444';
 
-      // 4 Corner Brackets
-      const len = 4;
-      // Top-Left
+      const isWorking = (staff.desk_status === 'WORKING');
+      const pulse = isWorking ? (1.6 + 0.4 * Math.sin(frame * 0.2)) : 1.5;
+      
+      // Outer glow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
       ctx.beginPath();
-      ctx.moveTo(rx, ry + len); ctx.lineTo(rx, ry); ctx.lineTo(rx + len, ry);
-      ctx.stroke();
-      // Top-Right
-      ctx.beginPath();
-      ctx.moveTo(rx + rw - len, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + len);
-      ctx.stroke();
-      // Bottom-Left
-      ctx.beginPath();
-      ctx.moveTo(rx, ry + rh - len); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx + len, ry + rh);
-      ctx.stroke();
-      // Bottom-Right
-      ctx.beginPath();
-      ctx.moveTo(rx + rw - len, ry + rh); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw, ry + rh - len);
-      ctx.stroke();
+      ctx.arc(px, py - 4, pulse + 1, 0, Math.PI * 2);
+      ctx.fill();
 
+      // Inner dot
+      ctx.fillStyle = dotColor;
+      ctx.beginPath();
+      ctx.arc(px, py - 4, pulse, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
-
-    // --- CANVAS ENGINE CONTROLLER & MAIN LOOP ---
 
     function initPixelCanvasEngine() {
       pixelOfficeCanvas = document.getElementById('pixel-office-canvas');
@@ -2287,20 +1807,19 @@ HTML_INTERFACE = """<!DOCTYPE html>
       if (!pixelOfficeCanvas.__engineInitialized) {
         pixelOfficeCanvas.__engineInitialized = true;
 
-        // Pointer Move -> Hover & HUD Detection
         pixelOfficeCanvas.addEventListener('pointermove', (e) => {
           const rect = pixelOfficeCanvas.getBoundingClientRect();
-          const scaleX = 1024 / rect.width;
-          const scaleY = 1024 / rect.height;
+          const scaleX = CANVAS_W / rect.width;
+          const scaleY = CANVAS_H / rect.height;
           const mx = (e.clientX - rect.left) * scaleX;
           const my = (e.clientY - rect.top) * scaleY;
 
           let foundIdx = -1;
           for (let i = 0; i < pixelOfficeStations.length; i++) {
             const slot = pixelOfficeStations[i];
-            const px = slot.px || (slot.col * TILE_SIZE + 16);
+            const px = slot.px || (slot.col * TILE_SIZE + 8);
             const py = slot.py || (slot.row * TILE_SIZE + 16);
-            if (Math.abs(mx - px) <= 22 && Math.abs(my - (py - 6)) <= 22) {
+            if (Math.abs(mx - px) <= 16 && Math.abs(my - py) <= 16) {
               foundIdx = i;
               break;
             }
@@ -2310,13 +1829,11 @@ HTML_INTERFACE = """<!DOCTYPE html>
           updateCanvasTooltip(foundIdx);
         });
 
-        // Pointer Leave -> Hide HUD
         pixelOfficeCanvas.addEventListener('pointerleave', () => {
           pixelOfficeHoverIdx = -1;
           updateCanvasTooltip(-1);
         });
 
-        // Click -> Open Employee Dossier
         pixelOfficeCanvas.addEventListener('click', (e) => {
           if (pixelOfficeHoverIdx !== -1) {
             const staff = pixelOfficeStations[pixelOfficeHoverIdx].assignedStaff;
@@ -2345,12 +1862,10 @@ HTML_INTERFACE = """<!DOCTYPE html>
         return;
       }
 
-      // Position Tooltip above Station in Percentage Coordinates
       tooltip.style.left = `${slot.x}%`;
-      tooltip.style.top = `${Math.max(12, slot.y - 4)}%`;
+      tooltip.style.top = `${Math.max(10, slot.y - 4)}%`;
       tooltip.style.opacity = '1';
 
-      // Status Badge HTML
       let statusColor = 'text-emerald-400';
       if (staff.desk_status === 'IN_MEETING') statusColor = 'text-amber-400';
       else if (staff.desk_status === 'STANDBY') statusColor = 'text-gray-400';
@@ -2377,110 +1892,262 @@ HTML_INTERFACE = """<!DOCTYPE html>
     function renderPixelFrame() {
       if (!pixelOfficeCtx || !pixelOfficeCanvas) return;
       pixelOfficeFrame++;
-      pixelOfficeCtx.clearRect(0, 0, 1024, 1024);
+      pixelOfficeCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-      // 1. Render Floor & Wall Tiles
+      if (!pixelAssetsReady) {
+        // Simple loading indicator
+        pixelOfficeCtx.fillStyle = '#0f1117';
+        pixelOfficeCtx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        pixelOfficeCtx.fillStyle = '#38bdf8';
+        pixelOfficeCtx.font = '12px "JetBrains Mono", monospace';
+        pixelOfficeCtx.fillText("Loading authentic pixel assets...", 260, 250);
+        pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
+        return;
+      }
+
+      // 1. Draw Corridors Background
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          const type = ROOM_MAP[r * COLS + c];
-          drawFloorTile(pixelOfficeCtx, type, c, r, activeZoneFilter);
+          if (fCorridor) pixelOfficeCtx.drawImage(fCorridor, c * 16, r * 16);
         }
       }
 
-      // 2. Render Furniture Base Layer (Shadows & Rear parts)
-      for (const f of FURNITURE_ENTITIES) {
-        const isFurnActive = (activeZoneFilter === 'all' || f.dept === activeZoneFilter || (activeZoneFilter === 'cafe' && f.dept === 'cafe'));
-        pixelOfficeCtx.globalAlpha = isFurnActive ? 1.0 : 0.35;
-        drawFurniture(pixelOfficeCtx, f, pixelOfficeFrame, false);
-        pixelOfficeCtx.globalAlpha = 1.0;
-      }
+      // 2. Draw Room Floors
+      ROOMS.forEach(rm => {
+        const tex = rm.getTex();
+        if (!tex) return;
+        const active = isRoomActive(rm.id);
+        pixelOfficeCtx.globalAlpha = active ? 1.0 : 0.35;
+        for (let r = rm.r1; r < rm.r2; r++) {
+          for (let c = rm.c1; c < rm.c2; c++) {
+            pixelOfficeCtx.drawImage(tex, c * 16, r * 16);
+          }
+        }
+      });
+      pixelOfficeCtx.globalAlpha = 1.0;
 
-      // 3. Assemble Z-Sorted Drawables (Characters, Front Desks & Badges)
+      // 3. Draw Top Walls (2 tiles high dark slate #243046)
+      pixelOfficeCtx.fillStyle = '#243046';
+      ROOMS.forEach(rm => {
+        const active = isRoomActive(rm.id);
+        pixelOfficeCtx.globalAlpha = active ? 1.0 : 0.35;
+        pixelOfficeCtx.fillRect(rm.c1 * 16, rm.r1 * 16, (rm.c2 - rm.c1) * 16, 32);
+      });
+      pixelOfficeCtx.globalAlpha = 1.0;
+
+      // Dividers
+      pixelOfficeCtx.fillStyle = '#182030';
+      pixelOfficeCtx.fillRect(15 * 16, 0, 32, 512);
+      pixelOfficeCtx.fillRect(30 * 16, 0, 32, 512);
+      pixelOfficeCtx.fillRect(0, 14 * 16, 768, 48);
+
+      // Doorways
+      const doors = [
+        [15 * 16, 7 * 16, 32, 32],
+        [30 * 16, 7 * 16, 32, 32],
+        [15 * 16, 23 * 16, 32, 32],
+        [30 * 16, 23 * 16, 32, 32],
+        [7 * 16, 14 * 16, 32, 48],
+        [23 * 16, 14 * 16, 32, 48],
+        [38 * 16, 14 * 16, 32, 48]
+      ];
+      doors.forEach(([dx, dy, dw, dh]) => {
+        for (let py = dy; py < dy + dh; py += 16) {
+          for (let px = dx; px < dx + dw; px += 16) {
+            if (fCorridor) pixelOfficeCtx.drawImage(fCorridor, px, py);
+          }
+        }
+      });
+
+      // 4. Assemble Z-Sorted Drawables
       const drawables = [];
 
-      // Characters & Badges
+      function addObj(imgKey, col, row, ox = 0, oy = 0, flip = false, active = true) {
+        const img = PIXEL_IMAGES[imgKey];
+        if (!img) return;
+        const x = col * 16 + ox;
+        const y = row * 16 + oy;
+        drawables.push({
+          zy: y + img.height,
+          draw: () => {
+            pixelOfficeCtx.save();
+            pixelOfficeCtx.globalAlpha = active ? 1.0 : 0.35;
+            if (flip) {
+              pixelOfficeCtx.translate(x + img.width, y);
+              pixelOfficeCtx.scale(-1, 1);
+              pixelOfficeCtx.drawImage(img, 0, 0);
+            } else {
+              pixelOfficeCtx.drawImage(img, x, y);
+            }
+            pixelOfficeCtx.restore();
+          }
+        });
+      }
+
+      // ── FIXED STATIC FURNITURE & DECOR ──
+      // Room 1: War Room Decor
+      addObj('assets/furniture/BOOKSHELF/BOOKSHELF.png', 4, 1, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/CLOCK/CLOCK.png', 8, 1, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/LARGE_PAINTING/LARGE_PAINTING.png', 11, 1, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 2, 4, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/TABLE_FRONT/TABLE_FRONT.png', 7, 6, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/WOODEN_CHAIR/WOODEN_CHAIR_SIDE.png', 6, 7, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/WOODEN_CHAIR/WOODEN_CHAIR_SIDE.png', 6, 9, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/WOODEN_CHAIR/WOODEN_CHAIR_SIDE.png', 10, 7, 0, 0, true, isRoomActive('executive'));
+      addObj('assets/furniture/WOODEN_CHAIR/WOODEN_CHAIR_SIDE.png', 10, 9, 0, 0, true, isRoomActive('executive'));
+      addObj('assets/furniture/PC/PC_SIDE.png', 7, 7, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/PC/PC_SIDE.png', 7, 9, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/PC/PC_SIDE.png', 9, 7, 0, 0, true, isRoomActive('executive'));
+      addObj('assets/furniture/PC/PC_SIDE.png', 9, 9, 0, 0, true, isRoomActive('executive'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 13, 3, 0, 0, false, isRoomActive('executive'));
+
+      // Room 2: Recon Decor
+      addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 18, 1, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/LARGE_PAINTING/LARGE_PAINTING.png', 24, 1, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/PLANT/PLANT.png', 28, 2, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/BIN/BIN.png', 28, 12, 0, 0, false, isRoomActive('intelligence'));
+
+      // Room 3: Engineering Decor
+      addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 33, 1, 0, 0, false, isRoomActive('engineering'));
+      addObj('assets/furniture/CLOCK/CLOCK.png', 38, 1, 0, 0, false, isRoomActive('engineering'));
+      addObj('assets/furniture/BOOKSHELF/BOOKSHELF.png', 41, 1, 0, 0, false, isRoomActive('engineering'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 44, 11, 0, 0, false, isRoomActive('engineering'));
+
+      // Room 4: Knowledge Vault Decor
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 3, 17, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 6, 17, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 9, 17, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 13, 18, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/CACTUS/CACTUS.png', 2, 27, 0, 0, false, isRoomActive('intelligence'));
+
+      // Room 5: QA Decor
+      addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 18, 17, 0, 0, false, isRoomActive('secops'));
+      addObj('assets/furniture/CLOCK/CLOCK.png', 24, 17, 0, 0, false, isRoomActive('secops'));
+      addObj('assets/furniture/PLANT/PLANT.png', 28, 18, 0, 0, false, isRoomActive('secops'));
+      addObj('assets/furniture/BIN/BIN.png', 28, 28, 0, 0, false, isRoomActive('secops'));
+
+      // Room 6: Breakroom Decor
+      addObj('assets/furniture/SMALL_TABLE/SMALL_TABLE_FRONT.png', 33, 19, 0, 0, false, isRoomActive('cafe'));
+      addObj('assets/furniture/COFFEE/COFFEE.png', 33, 18, 0, 0, false, isRoomActive('cafe'));
+      addObj('assets/furniture/SMALL_TABLE/SMALL_TABLE_FRONT.png', 35, 19, 0, 0, false, isRoomActive('cafe'));
+      addObj('assets/furniture/COFFEE_TABLE/COFFEE_TABLE.png', 40, 23, 0, 0, false, isRoomActive('cafe'));
+      addObj('assets/furniture/SOFA/SOFA_FRONT.png', 40, 21, 0, 0, false, isRoomActive('cafe'));
+      addObj('assets/furniture/SOFA/SOFA_BACK.png', 40, 25, 0, 0, false, isRoomActive('cafe'));
+      addObj('assets/furniture/SOFA/SOFA_SIDE.png', 38, 23, 0, 0, false, isRoomActive('cafe'));
+      addObj('assets/furniture/SOFA/SOFA_SIDE.png', 42, 23, 0, 0, true, isRoomActive('cafe'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 44, 18, 0, 0, false, isRoomActive('cafe'));
+      addObj('assets/furniture/CACTUS/CACTUS.png', 44, 27, 0, 0, false, isRoomActive('cafe'));
+
+      // Corridor Roaming Agent
+      const walkFrame = Math.floor(pixelOfficeFrame / 6);
+      const walkOffset = (Math.floor(pixelOfficeFrame / 2) % 120);
+      drawables.push({
+        zy: 15 * 16 + 32,
+        draw: () => {
+          drawCharFrame(pixelOfficeCtx, 2, 'right', 'walk', walkFrame, 16 * 16 + walkOffset, 15 * 16 - 8);
+        }
+      });
+
+      // ── DYNAMIC AGENT STATIONS & WORKSTATIONS ──
       for (let sIdx = 0; sIdx < pixelOfficeStations.length; sIdx++) {
         const slot = pixelOfficeStations[sIdx];
         const staff = slot.assignedStaff;
         if (!staff) continue;
 
-        const px = slot.px || (slot.col * TILE_SIZE + 16);
-        const py = slot.py || (slot.row * TILE_SIZE + 16);
+        const isSlotActive = isRoomActive(slot.dept);
         const isHovered = (pixelOfficeHoverIdx === sIdx);
-        const isZoneActive = (activeZoneFilter === 'all' || slot.dept === activeZoneFilter || (activeZoneFilter === 'cafe' && slot.id.startsWith('cafe')));
+        const isWorking = (staff.desk_status === 'WORKING');
+        const charIdx = sIdx % 6;
 
-        // Character Body
-        drawables.push({
-          zY: py,
-          draw: () => {
-            pixelOfficeCtx.globalAlpha = isZoneActive ? 1.0 : 0.25;
-            if (isHovered) {
-              drawHoverReticle(pixelOfficeCtx, px, py, slot.dir);
+        // Desks for Workstations (dirs == 'up')
+        if (slot.dir === 'up') {
+          const deskC = slot.col - 1;
+          const deskR = slot.row - 1;
+          // Desk
+          addObj('assets/furniture/DESK/DESK_FRONT.png', deskC, deskR, 0, 0, false, isSlotActive);
+          // Animated CRT phosphor glow
+          const pcFrame = 1 + (Math.floor((pixelOfficeFrame + sIdx * 7) / 14) % 3);
+          addObj(`assets/furniture/PC/PC_FRONT_ON_${pcFrame}.png`, deskC + 1, deskR - 1, 0, 0, false, isSlotActive);
+          // Bench Stool
+          addObj('assets/furniture/CUSHIONED_BENCH/CUSHIONED_BENCH.png', deskC + 1, deskR + 1, 0, 0, false, isSlotActive);
+
+          // Seated Agent typing facing UP at screen
+          const tx = (deskC + 1) * 16;
+          const ty = deskR * 16 + 16 - 6;
+          const bob = isWorking ? (Math.floor((pixelOfficeFrame + sIdx) / 8) % 2) : 0;
+
+          drawables.push({
+            zy: ty + 32,
+            draw: () => {
+              pixelOfficeCtx.save();
+              pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
+              if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
+              drawCharFrame(pixelOfficeCtx, charIdx, 'up', isWorking ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
+              if (isHovered || (activeZoneFilter !== 'all' && isSlotActive) || (activeZoneFilter === 'all' && slot.isPrimary)) {
+                drawFloatingBadge(pixelOfficeCtx, tx + 8, ty + 4, staff, slot, isHovered, pixelOfficeFrame);
+              } else {
+                drawMiniStatusDot(pixelOfficeCtx, tx + 8, ty + 4, staff, pixelOfficeFrame);
+              }
+              pixelOfficeCtx.restore();
             }
-            drawPixelCharacter(pixelOfficeCtx, px, py, slot.dir, slot.dept, staff.desk_status, staff.is_parent, pixelOfficeFrame, isHovered, sIdx);
-            pixelOfficeCtx.globalAlpha = 1.0;
-          }
-        });
+          });
+        } else {
+          // Table or Lounge seats (dirs == 'right', 'left', 'down')
+          const tx = slot.col * 16;
+          const ty = slot.row * 16 - 4;
+          const bob = isWorking ? (Math.floor((pixelOfficeFrame + sIdx) / 8) % 2) : 0;
 
-        // Floating Badges (Always on top)
-        drawables.push({
-          zY: 9000 + py,
-          draw: () => {
-            pixelOfficeCtx.globalAlpha = isZoneActive ? 1.0 : 0.25;
-            drawFloatingBadge(pixelOfficeCtx, px, py, staff, slot, isHovered, pixelOfficeFrame);
-            pixelOfficeCtx.globalAlpha = 1.0;
-          }
-        });
-      }
-
-      // Front Furniture Layer (Occludes characters seated behind them)
-      for (const f of FURNITURE_ENTITIES) {
-        const frontY = (f.row + f.h) * TILE_SIZE;
-        const isFurnActive = (activeZoneFilter === 'all' || f.dept === activeZoneFilter || (activeZoneFilter === 'cafe' && f.dept === 'cafe'));
-        drawables.push({
-          zY: frontY,
-          draw: () => {
-            pixelOfficeCtx.globalAlpha = isFurnActive ? 1.0 : 0.35;
-            drawFurniture(pixelOfficeCtx, f, pixelOfficeFrame, true);
-            pixelOfficeCtx.globalAlpha = 1.0;
-          }
-        });
-      }
-
-      // Sort by Z-Depth (Mathematically accurate sandwich occlusion)
-      drawables.sort((a, b) => a.zY - b.zY);
-
-      // Execute render calls in sorted order
-      for (let i = 0; i < drawables.length; i++) {
-        try {
-          drawables[i].draw();
-        } catch (e) {
-          console.error("Drawable error:", e);
+          drawables.push({
+            zy: ty + 32,
+            draw: () => {
+              pixelOfficeCtx.save();
+              pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
+              if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
+              drawCharFrame(pixelOfficeCtx, charIdx, slot.dir, isWorking ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
+              if (isHovered || (activeZoneFilter !== 'all' && isSlotActive) || (activeZoneFilter === 'all' && slot.isPrimary)) {
+                drawFloatingBadge(pixelOfficeCtx, tx + 8, ty + 4, staff, slot, isHovered, pixelOfficeFrame);
+              } else {
+                drawMiniStatusDot(pixelOfficeCtx, tx + 8, ty + 4, staff, pixelOfficeFrame);
+              }
+              pixelOfficeCtx.restore();
+            }
+          });
         }
       }
 
-      // Loop continues smoothly at 60 FPS
+      // Sort Drawables by Z-Depth (Sandwich Occlusion)
+      drawables.sort((a, b) => a.zy - b.zy);
+      drawables.forEach(d => {
+        try { d.draw(); } catch (e) { console.error("Drawable error:", e); }
+      });
+
       pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
     }
 
     function renderPixelOffice(data) {
       initPixelCanvasEngine();
 
+      if (!pixelAssetsReady) {
+        initPixelAssets(() => {
+          renderPixelOffice(data);
+        });
+      }
+
       const depts = data.departments || {};
       const parentAgent = (depts.executive && depts.executive.staff && depts.executive.staff[0]) ? depts.executive.staff[0] : null;
       const realSubagents = data.subagents || [];
 
-      // Clone stations and populate pixel coordinates
+      // Clone stations and compute pixel positions
       const stations = JSON.parse(JSON.stringify(OFFICE_STATIONS));
       stations.forEach(slot => {
-        slot.px = slot.col * TILE_SIZE + 16;
+        slot.px = slot.col * TILE_SIZE + 8;
         slot.py = slot.row * TILE_SIZE + 16;
-        slot.x = (slot.px / 1024) * 100;
-        slot.y = (slot.py / 1024) * 100;
+        slot.x = (slot.px / CANVAS_W) * 100;
+        slot.y = (slot.py / CANVAS_H) * 100;
       });
       officeStaffRegistry = [];
 
-      // 1. Assign Parent Orchestrator to exec_1
+      // 1. Assign Parent Orchestrator
       if (parentAgent) {
         const execSlot = stations.find(s => s.id === 'exec_1');
         if (execSlot) {
@@ -2490,7 +2157,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
         }
       }
 
-      // 2. Assign real subagents to matching departments
+      // 2. Assign real subagents
       let unassignedSubs = [...realSubagents];
       for (const sa of unassignedSubs) {
         const deptKey = sa.department || 'engineering';
@@ -2509,7 +2176,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
         }
       }
 
-      // 3. Fill remaining stations with active specialist AI employees!
+      // 3. Fill remaining stations with active specialist staff
       stations.forEach((slot, idx) => {
         if (!slot.assignedStaff) {
           const isExec = slot.dept === 'executive';
@@ -2547,7 +2214,6 @@ HTML_INTERFACE = """<!DOCTYPE html>
 
       pixelOfficeStations = stations;
 
-      // Start 60 FPS Render Loop if not already running
       if (!pixelOfficeAnimationId) {
         pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
       }
@@ -2569,11 +2235,15 @@ HTML_INTERFACE = """<!DOCTYPE html>
       if (btn150) btn150.className = (mode === '150') ? activeBtnClass : inactiveBtnClass;
 
       if (mode === '150') {
-        stage.style.width = '1440px';
+        stage.style.width = '1152px';
+        stage.style.aspectRatio = '768 / 512';
       } else if (mode === '100') {
-        stage.style.width = '1024px';
+        stage.style.width = '768px';
+        stage.style.aspectRatio = '768 / 512';
       } else {
-        stage.style.width = '720px';
+        stage.style.width = '860px';
+        stage.style.maxWidth = '100%';
+        stage.style.aspectRatio = '768 / 512';
       }
     }
 
@@ -3631,6 +3301,9 @@ class LocalApiHandler(BaseHTTPRequestHandler):
             injected_html = HTML_INTERFACE.replace(
                 "/* __INITIAL_STATE_PLACEHOLDER__ */",
                 f"window.__INITIAL_STATE__ = {state_json};"
+            ).replace(
+                "/* __PIXEL_ASSETS_BUNDLE__ */ {}",
+                PIXEL_ASSETS_BUNDLE_JSON
             )
             html_bytes = injected_html.encode("utf-8")
             self.send_response(200)
@@ -3638,6 +3311,14 @@ class LocalApiHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(html_bytes)))
             self.end_headers()
             self.wfile.write(html_bytes)
+        elif self.path == "/api/pixel-assets":
+            data_bytes = PIXEL_ASSETS_BUNDLE_JSON.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.send_header("Content-Length", str(len(data_bytes)))
+            self.end_headers()
+            self.wfile.write(data_bytes)
         elif self.path == "/api/status":
             now = time.time()
             if not LocalApiHandler.cached_status or (now - LocalApiHandler.last_fetch_time > 12):
