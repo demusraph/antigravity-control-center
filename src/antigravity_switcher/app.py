@@ -1539,10 +1539,11 @@ HTML_INTERFACE = """<!DOCTYPE html>
 
     function getPixelCharacterSvg(deptKey, deskStatus, isParent, dir = 'down', charIdx = 0) {
       let hairTop = '#1e293b', hairMain = '#0f172a';
-      let skinColor = '#fcd34d';
+      let skinColor = '#f5c697';
       let suitColor = '#1e3a8a';
       let pantsColor = '#1e293b';
-      let shoesColor = '#09090b';
+      let chairBack = '#18181f';
+      let chairRim = '#2e2e3d';
       let extraHead = '';
       let extraChest = '';
       let typingClass = deskStatus === 'WORKING' ? 'class="pixel-hands-typing"' : '';
@@ -1551,92 +1552,187 @@ HTML_INTERFACE = """<!DOCTYPE html>
         hairTop = charIdx % 2 === 0 ? '#475569' : '#1e293b';
         hairMain = charIdx % 2 === 0 ? '#334155' : '#0f172a';
         suitColor = '#1d4ed8';
-        pantsColor = '#1e293b';
-        shoesColor = '#000000';
-        extraChest = '<rect x="7.5" y="8" width="1" height="3" fill="#ef4444"/>'; // red tie
+        extraChest = '<rect x="7.5" y="6.5" width="1" height="3" fill="#ef4444"/>';
       } else if (deptKey === 'engineering') {
         hairTop = charIdx % 3 === 0 ? '#7c3aed' : (charIdx % 3 === 1 ? '#d97706' : '#2563eb');
         hairMain = charIdx % 3 === 0 ? '#6d28d9' : (charIdx % 3 === 1 ? '#b45309' : '#1d4ed8');
-        suitColor = charIdx % 2 === 0 ? '#7c3aed' : '#3b82f6'; // purple or blue hoodie
-        pantsColor = '#3f3f46';
-        shoesColor = '#a855f7';
+        suitColor = charIdx % 2 === 0 ? '#6d28d9' : '#2563eb';
         extraHead = `
-          <rect x="3" y="3" width="1.5" height="3.5" fill="#38bdf8"/>
-          <rect x="11.5" y="3" width="1.5" height="3.5" fill="#38bdf8"/>
-          <rect x="4" y="1" width="8" height="1" fill="#0284c7"/>
-        `; // studio headphones
+          <rect x="2.5" y="2" width="1.5" height="3.5" fill="#38bdf8"/>
+          <rect x="12" y="2" width="1.5" height="3.5" fill="#38bdf8"/>
+          <rect x="3.5" y="0.5" width="9" height="1" fill="#0284c7"/>
+        `;
         extraChest = `
-          <rect x="6.5" y="8" width="1" height="2.5" fill="#38bdf8"/>
-          <rect x="8.5" y="8" width="1" height="2.5" fill="#38bdf8"/>
-        `; // hoodie drawstrings
+          <rect x="6.5" y="7" width="1" height="2" fill="#38bdf8"/>
+          <rect x="8.5" y="7" width="1" height="2" fill="#38bdf8"/>
+        `;
       } else if (deptKey === 'intelligence') {
         hairTop = charIdx % 2 === 0 ? '#047857' : '#475569';
         hairMain = charIdx % 2 === 0 ? '#065f46' : '#334155';
-        suitColor = '#059669'; // emerald vest
-        pantsColor = '#334155';
-        shoesColor = '#78350f';
+        suitColor = '#059669';
         extraHead = `
-          <rect x="4.5" y="4" width="3" height="2" fill="none" stroke="#38bdf8" stroke-width="0.8"/>
-          <rect x="8.5" y="4" width="3" height="2" fill="none" stroke="#38bdf8" stroke-width="0.8"/>
-          <line x1="7.5" y1="5" x2="8.5" y2="5" stroke="#38bdf8" stroke-width="0.8"/>
-        `; // spectacles
+          <rect x="4.5" y="3.5" width="3" height="2" fill="none" stroke="#38bdf8" stroke-width="0.8"/>
+          <rect x="8.5" y="3.5" width="3" height="2" fill="none" stroke="#38bdf8" stroke-width="0.8"/>
+          <line x1="7.5" y1="4.5" x2="8.5" y2="4.5" stroke="#38bdf8" stroke-width="0.8"/>
+        `;
         extraChest = `
-          <rect x="6" y="7" width="4" height="4" fill="#fef08a"/>
-          <rect x="9" y="8" width="1" height="2" fill="#fbbf24"/>
-        `; // cream shirt and gold pocket pen
+          <rect x="6" y="6" width="4" height="3.5" fill="#fef08a"/>
+          <rect x="9" y="7" width="1" height="1.5" fill="#fbbf24"/>
+        `;
       } else if (deptKey === 'secops') {
         hairTop = '#18181b';
         hairMain = '#27272a';
-        suitColor = '#27272a'; // tactical charcoal vest
-        pantsColor = '#18181b';
-        shoesColor = '#09090b';
+        suitColor = '#27272a';
         extraHead = `
-          <rect x="3" y="3" width="1.5" height="2" fill="#eab308"/>
-          <rect x="4" y="5" width="2" height="1" fill="#eab308"/>
-        `; // comms boom mic headset
+          <rect x="2.5" y="2.5" width="1.5" height="2" fill="#eab308"/>
+          <rect x="3.5" y="4.5" width="2" height="1" fill="#eab308"/>
+        `;
         extraChest = `
-          <rect x="6" y="7" width="4" height="5" fill="#d97706"/>
-          <rect x="9" y="8" width="1.5" height="1.5" fill="#fbbf24"/>
-        `; // hazard straps and gold badge
+          <rect x="6" y="6" width="4" height="4" fill="#d97706"/>
+          <rect x="8.5" y="7" width="1.5" height="1.5" fill="#fbbf24"/>
+        `;
       }
 
+      // 1. DIRECTION: UP (Facing North / Desk & Monitors from behind)
+      if (dir === 'up') {
+        return `
+          <svg width="28" height="26" viewBox="0 0 16 14" class="block overflow-visible select-none" shape-rendering="crispEdges">
+            <!-- Ergonomic Chair High-Backrest (Behind) -->
+            <rect x="2" y="3.5" width="12" height="8" rx="1" fill="${chairBack}" stroke="${chairRim}" stroke-width="0.7"/>
+            <rect x="1" y="5.5" width="1.5" height="4.5" fill="${chairRim}"/>
+            <rect x="13.5" y="5.5" width="1.5" height="4.5" fill="${chairRim}"/>
+
+            <!-- Back of Head & Hair (No face - facing monitor) -->
+            <rect x="4" y="0.5" width="8" height="5.5" fill="${hairTop}"/>
+            <rect x="3.5" y="1.5" width="9" height="4" fill="${hairMain}"/>
+            ${deptKey === 'engineering' ? `
+              <!-- Headphones from behind -->
+              <rect x="2.5" y="1.8" width="1.5" height="3" fill="#38bdf8"/>
+              <rect x="12" y="1.8" width="1.5" height="3" fill="#38bdf8"/>
+              <rect x="3.5" y="0.5" width="9" height="1" fill="#0284c7"/>
+            ` : ''}
+
+            <!-- Back of Torso & Shoulders -->
+            <rect x="4" y="5.5" width="8" height="5" fill="${suitColor}"/>
+            <rect x="7.5" y="6" width="1" height="4" fill="rgba(0,0,0,0.25)"/>
+
+            <!-- Arms Reaching North onto Keyboard / Desk with Typing Animation -->
+            <g ${typingClass}>
+              <rect x="2.5" y="3.5" width="2" height="4.5" fill="${suitColor}"/>
+              <rect x="2.5" y="1.5" width="2" height="2" fill="${skinColor}"/>
+
+              <rect x="11.5" y="3.5" width="2" height="4.5" fill="${suitColor}"/>
+              <rect x="11.5" y="1.5" width="2" height="2" fill="${skinColor}"/>
+              
+              <!-- Keyboard keys glow in front of hands -->
+              <rect x="4.5" y="1" width="7" height="1.5" fill="#334155"/>
+              <rect x="5.5" y="1.2" width="1" height="0.8" fill="#38bdf8"/>
+              <rect x="7.5" y="1.2" width="1" height="0.8" fill="#38bdf8"/>
+              <rect x="9.5" y="1.2" width="1" height="0.8" fill="#38bdf8"/>
+            </g>
+
+            <!-- Seated Thighs on Chair Cushion (No dangling standing feet!) -->
+            <rect x="4" y="10.5" width="8" height="2" fill="${pantsColor}"/>
+          </svg>
+        `;
+      }
+
+      // 2. DIRECTION: DOWN (Facing South / Table & Camera from front)
+      if (dir === 'down') {
+        return `
+          <svg width="28" height="26" viewBox="0 0 16 14" class="block overflow-visible select-none" shape-rendering="crispEdges">
+            <!-- Chair Backrest peek behind shoulders -->
+            <rect x="2.5" y="2" width="11" height="7" rx="1" fill="${chairBack}" stroke="${chairRim}" stroke-width="0.7"/>
+            <rect x="1.5" y="4.5" width="1.5" height="4" fill="${chairRim}"/>
+            <rect x="13" y="4.5" width="1.5" height="4" fill="${chairRim}"/>
+
+            <!-- Head & Hair Base -->
+            <rect x="4" y="0.5" width="8" height="4.5" fill="${hairTop}"/>
+            <rect x="3.5" y="1.5" width="9" height="3" fill="${hairMain}"/>
+            <rect x="4" y="2" width="8" height="4" fill="${skinColor}"/>
+
+            <!-- Eyes & Face -->
+            <rect x="5.5" y="3" width="1.5" height="1.5" fill="#0f172a"/>
+            <rect x="9" y="3" width="1.5" height="1.5" fill="#0f172a"/>
+            <rect x="4" y="1.5" width="8" height="1" fill="${hairTop}"/>
+            ${extraHead}
+
+            <!-- Torso / Chest -->
+            <rect x="4" y="5.5" width="8" height="5" fill="${suitColor}"/>
+            ${extraChest}
+
+            <!-- Arms & Hands Resting Forward on Table/Laptop Edge -->
+            <g ${typingClass}>
+              <rect x="2.5" y="6" width="2" height="4" fill="${suitColor}"/>
+              <rect x="2.5" y="9" width="2" height="1.8" fill="${skinColor}"/>
+
+              <rect x="11.5" y="6" width="2" height="4" fill="${suitColor}"/>
+              <rect x="11.5" y="9" width="2" height="1.8" fill="${skinColor}"/>
+              
+              <!-- Laptop / Desk Blotter Edge in front -->
+              <rect x="4.5" y="9.5" width="7" height="1.8" fill="#1e293b"/>
+              <rect x="5.5" y="9.8" width="5" height="1" fill="#38bdf8" opacity="0.85"/>
+            </g>
+
+            <!-- Seated Thighs on Chair Cushion (No dangling standing legs!) -->
+            <rect x="4.5" y="10.5" width="7" height="2" fill="${pantsColor}"/>
+          </svg>
+        `;
+      }
+
+      // 3. DIRECTION: RIGHT (Facing East / Desk to Right)
+      if (dir === 'right') {
+        return `
+          <svg width="28" height="26" viewBox="0 0 16 14" class="block overflow-visible select-none" shape-rendering="crispEdges">
+            <!-- Chair Backrest on the Left -->
+            <rect x="1.5" y="2.5" width="3" height="9" fill="${chairBack}" stroke="${chairRim}" stroke-width="0.7"/>
+            <rect x="1.5" y="10" width="8" height="2" fill="${chairRim}"/>
+
+            <!-- Head Profile (Looking Right) -->
+            <rect x="4" y="1" width="6" height="5" fill="${hairTop}"/>
+            <rect x="6" y="2" width="5" height="4" fill="${skinColor}"/>
+            <rect x="9.5" y="3" width="1.5" height="1.5" fill="#0f172a"/>
+            <rect x="5" y="1" width="5" height="1.5" fill="${hairTop}"/>
+
+            <!-- Torso (Profile) -->
+            <rect x="4.5" y="6" width="6" height="4.5" fill="${suitColor}"/>
+
+            <!-- Arms & Hands Reaching Right onto Desk -->
+            <g ${typingClass}>
+              <rect x="6.5" y="7" width="5" height="2" fill="${suitColor}"/>
+              <rect x="11.5" y="7" width="2" height="1.8" fill="${skinColor}"/>
+            </g>
+
+            <!-- Seated Bent Thigh pointing right on cushion -->
+            <rect x="4.5" y="10" width="7" height="2.5" fill="${pantsColor}"/>
+          </svg>
+        `;
+      }
+
+      // 4. DIRECTION: LEFT (Facing West / Desk to Left)
       return `
-        <svg width="28" height="32" viewBox="0 0 16 18" class="block overflow-visible select-none" shape-rendering="crispEdges">
-          <!-- Hair Back -->
-          <rect x="4" y="1" width="8" height="5" fill="${hairTop}"/>
-          <rect x="3" y="2" width="10" height="4" fill="${hairMain}"/>
-          
-          <!-- Head Base -->
-          <rect x="4" y="3" width="8" height="5" fill="${skinColor}"/>
-          
-          <!-- Eyes -->
-          <rect x="5.5" y="4.5" width="1.5" height="1.5" fill="#0f172a"/>
-          <rect x="9" y="4.5" width="1.5" height="1.5" fill="#0f172a"/>
-          
-          <!-- Eyebrows / Hair Fringe -->
-          <rect x="4" y="2" width="8" height="1.5" fill="${hairTop}"/>
-          ${extraHead}
+        <svg width="28" height="26" viewBox="0 0 16 14" class="block overflow-visible select-none" shape-rendering="crispEdges">
+          <!-- Chair Backrest on the Right -->
+          <rect x="11.5" y="2.5" width="3" height="9" fill="${chairBack}" stroke="${chairRim}" stroke-width="0.7"/>
+          <rect x="6.5" y="10" width="8" height="2" fill="${chairRim}"/>
 
-          <!-- Torso / Uniform -->
-          <rect x="4" y="7" width="8" height="6" fill="${suitColor}"/>
-          ${extraChest}
+          <!-- Head Profile (Looking Left) -->
+          <rect x="6" y="1" width="6" height="5" fill="${hairTop}"/>
+          <rect x="5" y="2" width="5" height="4" fill="${skinColor}"/>
+          <rect x="5" y="3" width="1.5" height="1.5" fill="#0f172a"/>
+          <rect x="6" y="1" width="5" height="1.5" fill="${hairTop}"/>
 
-          <!-- Animated Typing Hands or Resting Arms -->
+          <!-- Torso (Profile) -->
+          <rect x="5.5" y="6" width="6" height="4.5" fill="${suitColor}"/>
+
+          <!-- Arms & Hands Reaching Left onto Desk -->
           <g ${typingClass}>
-            <rect x="2.5" y="8" width="1.8" height="4" fill="${suitColor}"/>
-            <rect x="2.5" y="11" width="1.8" height="1.5" fill="${skinColor}"/>
-            
-            <rect x="11.7" y="8" width="1.8" height="4" fill="${suitColor}"/>
-            <rect x="11.7" y="11" width="1.8" height="1.5" fill="${skinColor}"/>
+            <rect x="4.5" y="7" width="5" height="2" fill="${suitColor}"/>
+            <rect x="2.5" y="7" width="2" height="1.8" fill="${skinColor}"/>
           </g>
 
-          <!-- Pants / Legs -->
-          <rect x="5" y="13" width="2.5" height="3.5" fill="${pantsColor}"/>
-          <rect x="8.5" y="13" width="2.5" height="3.5" fill="${pantsColor}"/>
-
-          <!-- Shoes -->
-          <rect x="4.5" y="16.5" width="3" height="1.5" fill="${shoesColor}"/>
-          <rect x="8.5" y="16.5" width="3" height="1.5" fill="${shoesColor}"/>
+          <!-- Seated Bent Thigh pointing left on cushion -->
+          <rect x="4.5" y="10" width="7" height="2.5" fill="${pantsColor}"/>
         </svg>
       `;
     }
@@ -1744,27 +1840,53 @@ HTML_INTERFACE = """<!DOCTYPE html>
           glowHtml = `<div class="pixel-monitor-glow" style="background: radial-gradient(circle, ${glowColor} 0%, rgba(0,0,0,0) 70%);"></div>`;
         }
 
-        // Speech Activity Bubble
-        let bubbleHtml = '';
-        let toolChip = '';
+        // Role / Title Badge (User requested role/title instead of tool chip)
+        const rawTitle = staff.role || slot.title || 'Staff Agent';
+        const roleMap = {
+          'Frontend Engineer': 'Frontend Dev',
+          'Backend Core Dev': 'Backend Dev',
+          'Systems Refactorer': 'Refactorer',
+          'DevOps & SRE': 'DevOps SRE',
+          'Fullstack Engineer': 'Fullstack',
+          'Algorithm Specialist': 'Algorithms',
+          'Lead Architect': 'Lead Arch',
+          'Release Automator': 'Release Auto',
+          'Model Evaluator': 'Model Eval',
+          'Knowledge Miner': 'Knowledge',
+          'Server Infra SRE': 'Infra SRE',
+          'Data Pipeline Analyst': 'Data Pipeline',
+          'Lead Orchestrator (Root)': 'Root Orchestrator',
+          'Strategic Advisor': 'Strategy Lead',
+          'Chief Systems Architect': 'Chief Arch',
+          'Research Fellow': 'Researcher',
+          'Docs Archivist': 'Docs Archivist',
+          'Espresso Standby Agent': 'Espresso',
+          'Standby Developer': 'Standby Dev',
+          'Standby Sentinel': 'Sentinel',
+          'Security Sentinel': 'SecOps Sentinel',
+          'Penetration Tester': 'Pentester',
+          'Red Team Hunter': 'Red Team',
+          'Compliance Guard': 'Compliance',
+          'Incident Commander': 'Incident Lead',
+          'QA Audit Lead': 'QA Lead',
+          'Code Validator': 'Code Validator',
+          'DAG Supervisor': 'DAG Supervisor'
+        };
+        let displayRole = roleMap[rawTitle] || rawTitle.replace(' (Root)', '').replace(' Engineer', ' Dev');
+
         let bubbleClass = 'working';
-        if (staff.active_tool && staff.active_tool.name) {
-          toolChip = staff.active_tool.name;
-        } else if (staff.desk_status === 'IN_MEETING') {
-          toolChip = 'Sync';
+        if (staff.desk_status === 'IN_MEETING') {
           bubbleClass = 'meeting';
         } else if (staff.desk_status === 'STANDBY') {
-          toolChip = 'Break';
           bubbleClass = 'standby';
-        } else {
-          toolChip = 'Focus';
-          bubbleClass = 'working';
+        } else if (staff.desk_status === 'BLOCKED') {
+          bubbleClass = 'blocked';
         }
 
         bubbleHtml = `
           <div class="pixel-bubble ${bubbleClass}">
             <span class="pixel-bubble-dot"></span>
-            <span class="truncate max-w-[80px]">${escapeHtml(toolChip)}</span>
+            <span class="truncate max-w-[100px] font-medium tracking-tight">${escapeHtml(displayRole)}</span>
           </div>
         `;
 
