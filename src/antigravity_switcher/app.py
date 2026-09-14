@@ -2033,21 +2033,246 @@ HTML_INTERFACE = """<!DOCTYPE html>
       return lines;
     }
 
-    function buildMeetingDialogues(mission, participants) {
-      const engId = participants.find(id => id.startsWith('eng')) || 'eng_2';
-      const intelId = participants.find(id => id.startsWith('lab')) || 'lab_1';
-      const secId = participants.find(id => id.startsWith('sec')) || 'sec_7';
-      const libId = participants.find(id => id.startsWith('lib')) || 'lib_1';
+    // ── PROCEDURAL TOPIC-AWARE DIALOGUE & ROTATION ENGINE ──
+    let lastMeetingParticipantIds = [];
+    let generalMeetingRotationIndex = 0;
 
-      let cleanMission = mission || 'Sprint Architecture & Task Delegation';
-      if (cleanMission.length > 36) cleanMission = cleanMission.slice(0, 33) + '...';
+    const ROTATION_POOLS = {
+      engineering: ['eng_1', 'eng_2', 'eng_3', 'eng_4', 'eng_5', 'eng_6', 'eng_7', 'eng_8'],
+      intelligence: ['lab_1', 'lab_2', 'lab_3', 'lab_4'],
+      secops: ['sec_1', 'sec_2', 'sec_5', 'sec_6', 'sec_7', 'sec_8'],
+      vault: ['lib_1', 'lib_2', 'lib_3', 'lib_4']
+    };
+
+    const ROLE_DIALOGUE_LINES = {
+      'eng_1': 'Tailwind & React Bits animations prepped!',
+      'eng_2': 'FastAPI endpoints & typed contracts ready.',
+      'eng_3': 'Surgical AST edits prepped, zero fluff.',
+      'eng_4': 'CI/CD pipeline and PyInstaller armed.',
+      'eng_5': 'E2E contracts & component wire verified.',
+      'eng_6': 'Sub-millisecond heuristics benchmarked.',
+      'eng_7': 'System architecture adheres to 70/30 rule.',
+      'eng_8': 'Artifact versioning & checksums locked.',
+      'lab_1': 'Perplexity audit passed, zero hallucination.',
+      'lab_2': 'DemusBrain vault indexed and MOC synced.',
+      'lab_3': 'Hardware telemetry & process watcher nominal.',
+      'lab_4': 'Token lineage & data pipeline flowing.',
+      'lib_1': 'Synthesized RFC specs and research models.',
+      'lib_2': 'Permanent knowledge compounded to vault.',
+      'lib_3': 'Knowledge graph ontology mapped cleanly.',
+      'lib_4': 'Vault mirrors synchronized with zero desync.',
+      'sec_1': 'Threat surface locked. Port gates guarded.',
+      'sec_2': 'Attack vectors probed. Exploit sealed.',
+      'sec_5': 'War room protocol engaged, ready to triage.',
+      'sec_6': 'Regression tests staged, DoD enforced.',
+      'sec_7': 'Syntax, TypeScript & linter 100% clean.',
+      'sec_8': 'Subagent DAG workflow verified.',
+      'exec_3': 'High-level system topology aligned.',
+      'cafe_1': 'Espresso brewed! Energy levels at 100%.',
+      'cafe_2': 'Standby dev ready for code review & pair.',
+      'cafe_3': 'Perimeter patrol secure while on standby.'
+    };
+
+    const ROLE_CHORUS_EMOTES = {
+      'eng_1': 'Rendering! 🎨',
+      'eng_2': 'Compiling! ⚙️',
+      'eng_3': 'Refactoring! ✂️',
+      'eng_4': 'Deploying! 🚢',
+      'eng_5': 'Integrating! 🧩',
+      'eng_6': 'Optimizing! ⚡',
+      'eng_7': 'Governing! 🏛️',
+      'eng_8': 'Releasing! 📦',
+      'lab_1': 'Auditing! 🔍',
+      'lab_2': 'Mining! 🧠',
+      'lab_3': 'Monitoring! 📊',
+      'lab_4': 'Pipelining! 🚰',
+      'lib_1': 'Synthesized! 💡',
+      'lib_2': 'Vaulted! 📚',
+      'lib_3': 'Curating! 🕸️',
+      'lib_4': 'Syncing! 🔄',
+      'sec_1': 'Defending! 🛡️',
+      'sec_2': 'Penetrating! 🎯',
+      'sec_5': 'Commanding! 🚨',
+      'sec_6': 'Testing! 🧪',
+      'sec_7': 'Validating! ✅',
+      'sec_8': 'Supervising! 👁️',
+      'exec_3': 'Blueprinting! 📐',
+      'cafe_1': 'Energized! ☕',
+      'cafe_2': 'Ready! 💻',
+      'cafe_3': 'Standing! 🛡️'
+    };
+
+    function classifyPromptTheme(rawText) {
+      const text = (rawText || '').toLowerCase();
+      
+      // 1. Frontend / UI / UX / Styling / Visual
+      if (/(frontend|ui|ux|tampilan|css|tailwind|react|komponen|button|tombol|halaman|layout|modal|interaksi|desain|design|visual|warna|font|responsive)/i.test(text)) {
+        return {
+          theme: 'frontend',
+          primaryDept: 'engineering',
+          recommendedStaff: ['eng_1', 'eng_5', 'sec_6', 'lab_1'],
+          advisorLine: 'Prioritizing 60fps micro-UX & design tokens.',
+          cleanTopic: 'Frontend UI & Micro-Interactions'
+        };
+      }
+      
+      // 2. Security / Pentest / Audit / Auth / Vulnerability
+      if (/(secops|security|pentest|audit|vulnerability|vuln|cve|zero-trust|threat|auth|token|bypass|leak|csrf|xss|injection|red team|exploit|keamanan|hacker)/i.test(text)) {
+        return {
+          theme: 'security',
+          primaryDept: 'secops',
+          recommendedStaff: ['sec_2', 'sec_1', 'sec_5', 'sec_6'],
+          advisorLine: 'Threat surface mapped. Zero-trust gate ready.',
+          cleanTopic: 'Security Audit & Threat Surface'
+        };
+      }
+      
+      // 3. DevOps / Infra / Deployment / Docker / CI-CD / Server / Crash
+      if (/(devops|infra|sre|deploy|ci[/-]cd|pipeline|build|release|docker|container|crash|memory|cpu|latency|server|hardware|monitoring|uptime)/i.test(text)) {
+        return {
+          theme: 'infra',
+          primaryDept: 'engineering',
+          recommendedStaff: ['eng_4', 'lab_3', 'eng_8', 'sec_5'],
+          advisorLine: 'Hardware telemetry checked. Pipeline staged.',
+          cleanTopic: 'Infrastructure Reliability & CI/CD'
+        };
+      }
+
+      // 4. Backend / Database / API / Architecture
+      if (/(backend|api|endpoint|database|db|fastapi|sql|rest|route|websocket|ast|refactor|contract|schema|migration)/i.test(text)) {
+        return {
+          theme: 'backend',
+          primaryDept: 'engineering',
+          recommendedStaff: ['eng_2', 'eng_3', 'lab_4', 'sec_7'],
+          advisorLine: 'ACID guarantees and strict typed AST validated.',
+          cleanTopic: 'Backend Architecture & API Contracts'
+        };
+      }
+
+      // 5. AI / LLM / Models / Prompts / Subagents / Eval
+      if (/(model|ai|llm|gemini|claude|gpt|prompt|reasoning|eval|token|subagent|agent|benchmark|perplexity|hallucination)/i.test(text)) {
+        return {
+          theme: 'ai',
+          primaryDept: 'intelligence',
+          recommendedStaff: ['lab_1', 'lab_2', 'lib_3', 'eng_6'],
+          advisorLine: 'Token efficiency optimized; perplexity verified.',
+          cleanTopic: 'AI Model Reasoning & Subagent Sync'
+        };
+      }
+
+      // 6. Knowledge / Vault / DemusBrain / Docs / Research
+      if (/(vault|demusbrain|docs|dokumen|catatan|catat|arsip|archive|research|paper|rfc|sync|memos|knowledge)/i.test(text)) {
+        return {
+          theme: 'docs',
+          primaryDept: 'intelligence',
+          recommendedStaff: ['lib_1', 'lib_2', 'lib_4', 'lab_2'],
+          advisorLine: 'SSOT verified against DemusBrain vault.',
+          cleanTopic: 'Knowledge Compounding & Vault Sync'
+        };
+      }
+
+      // 7. QA / Testing / Bug Hunting / DoD / Lint
+      if (/(bug|error|fix|test|testing|qa|lint|typecheck|dod|validate|masalah|rusak|benerin|patch)/i.test(text)) {
+        return {
+          theme: 'qa',
+          primaryDept: 'secops',
+          recommendedStaff: ['sec_6', 'sec_7', 'eng_3', 'eng_5'],
+          advisorLine: 'Strict Definition of Done: zero-placeholder gate.',
+          cleanTopic: 'Bug Remediation & DoD Verification'
+        };
+      }
+
+      // 8. General all-hands / Multi-divisi / Default
+      return {
+        theme: 'general',
+        primaryDept: 'all',
+        recommendedStaff: null,
+        advisorLine: 'Enforcing 70% reliability + 30% speed.',
+        cleanTopic: 'Cross-Department Strategy Alignment'
+      };
+    }
+
+    function selectSmartDelegates(promptText) {
+      const classification = classifyPromptTheme(promptText);
+      let selectedIds = [];
+
+      if (classification.recommendedStaff && classification.recommendedStaff.length >= 4) {
+        selectedIds = classification.recommendedStaff.slice(0, 4);
+      } else {
+        // Multi-divisi rotation pool: pick 1 Engineering, 1 Intelligence, 1 SecOps, 1 Vault
+        generalMeetingRotationIndex++;
+        const engPool = ROTATION_POOLS.engineering;
+        const intelPool = ROTATION_POOLS.intelligence;
+        const secPool = ROTATION_POOLS.secops;
+        const vaultPool = ROTATION_POOLS.vault;
+
+        let engId = engPool[generalMeetingRotationIndex % engPool.length];
+        let intelId = intelPool[generalMeetingRotationIndex % intelPool.length];
+        let secId = secPool[generalMeetingRotationIndex % secPool.length];
+        let vaultId = vaultPool[generalMeetingRotationIndex % vaultPool.length];
+
+        // Anti-repetition: if any ID matches previous meeting, shift by offset
+        if (lastMeetingParticipantIds.includes(engId)) {
+          engId = engPool[(generalMeetingRotationIndex + 3) % engPool.length];
+        }
+        if (lastMeetingParticipantIds.includes(intelId)) {
+          intelId = intelPool[(generalMeetingRotationIndex + 2) % intelPool.length];
+        }
+        if (lastMeetingParticipantIds.includes(secId)) {
+          secId = secPool[(generalMeetingRotationIndex + 3) % secPool.length];
+        }
+        if (lastMeetingParticipantIds.includes(vaultId)) {
+          vaultId = vaultPool[(generalMeetingRotationIndex + 2) % vaultPool.length];
+        }
+
+        selectedIds = [engId, intelId, secId, vaultId];
+      }
+
+      lastMeetingParticipantIds = [...selectedIds];
+      return selectedIds;
+    }
+
+    function getConsensusLine(theme) {
+      if (theme === 'qa') return 'Consensus reached! Patch and verify with DoD.';
+      if (theme === 'security') return 'Consensus reached! Seal attack vectors immediately.';
+      if (theme === 'infra') return 'Consensus reached! Stage rollout & watch telemetry.';
+      if (theme === 'frontend') return 'Consensus reached! Polish UI components & deploy.';
+      if (theme === 'backend') return 'Consensus reached! Enforce API contracts & tests.';
+      if (theme === 'ai') return 'Consensus reached! Benchmark prompts & deploy models.';
+      if (theme === 'docs') return 'Consensus reached! Compound knowledge to vault.';
+      return 'Consensus reached! Disperse and execute with DoD.';
+    }
+
+    function buildMeetingDialogues(mission, participants, rawUserPrompt) {
+      const classification = classifyPromptTheme(rawUserPrompt || mission);
+
+      const p0 = participants[0] || 'eng_2';
+      const p1 = participants[1] || 'lab_1';
+      const p2 = participants[2] || 'sec_7';
+      const p3 = participants[3] || 'lib_1';
+
+      const s0 = pixelOfficeStations.find(s => s.id === p0) || OFFICE_STATIONS.find(s => s.id === p0) || { id: p0, title: 'Engineer', dept: 'engineering' };
+      const s1 = pixelOfficeStations.find(s => s.id === p1) || OFFICE_STATIONS.find(s => s.id === p1) || { id: p1, title: 'Specialist', dept: 'intelligence' };
+      const s2 = pixelOfficeStations.find(s => s.id === p2) || OFFICE_STATIONS.find(s => s.id === p2) || { id: p2, title: 'Sentinel', dept: 'secops' };
+      const s3 = pixelOfficeStations.find(s => s.id === p3) || OFFICE_STATIONS.find(s => s.id === p3) || { id: p3, title: 'Researcher', dept: 'intelligence' };
+
+      let cleanDirective = '';
+      if (rawUserPrompt) {
+        let cleaned = rawUserPrompt.replace(/^(ayo|tolong|coba|semua|guys|rekan-rekan|halo|oi)\\s+/i, '').trim();
+        if (cleaned.length > 34) cleaned = cleaned.slice(0, 31) + '...';
+        cleanDirective = `Commander: "${cleaned}"`;
+      } else {
+        let cleanMission = mission || classification.cleanTopic;
+        if (cleanMission.length > 34) cleanMission = cleanMission.slice(0, 31) + '...';
+        cleanDirective = `Directives: ${cleanMission}`;
+      }
 
       return [
         {
           speakerId: 'exec_1',
           speakerRole: 'Lead Orchestrator (Root)',
           dept: 'executive',
-          text: `Directives: ${cleanMission}`,
+          text: cleanDirective,
           startFrame: 10,
           duration: 100
         },
@@ -2055,31 +2280,31 @@ HTML_INTERFACE = """<!DOCTYPE html>
           speakerId: 'exec_2',
           speakerRole: 'Strategic Advisor',
           dept: 'executive',
-          text: 'Verified: 70% reliability + 30% speed.',
+          text: classification.advisorLine,
           startFrame: 115,
           duration: 95
         },
         {
-          speakerId: engId,
-          speakerRole: 'Backend Core Dev',
-          dept: 'engineering',
-          text: 'Understood! Scaffolding AST & typed contracts.',
+          speakerId: s0.id,
+          speakerRole: s0.assignedStaff?.role || s0.title,
+          dept: s0.dept,
+          text: ROLE_DIALOGUE_LINES[s0.id] || 'Understood! Scaffolding implementation AST.',
           startFrame: 215,
           duration: 95
         },
         {
-          speakerId: secId,
-          speakerRole: 'Security Sentinel',
-          dept: 'secops',
-          text: 'Threat surface mapped. Zero-trust gate ready.',
+          speakerId: s1.id,
+          speakerRole: s1.assignedStaff?.role || s1.title,
+          dept: s1.dept,
+          text: ROLE_DIALOGUE_LINES[s1.id] || 'Telemetry verified. DemusBrain vault synced.',
           startFrame: 315,
           duration: 95
         },
         {
-          speakerId: intelId,
-          speakerRole: 'Model Scientist',
-          dept: 'intelligence',
-          text: 'Telemetry verified. DemusBrain vault synced.',
+          speakerId: s2.id,
+          speakerRole: s2.assignedStaff?.role || s2.title,
+          dept: s2.dept,
+          text: ROLE_DIALOGUE_LINES[s2.id] || 'Threat surface mapped. Zero-trust gate ready.',
           startFrame: 415,
           duration: 95
         },
@@ -2087,20 +2312,20 @@ HTML_INTERFACE = """<!DOCTYPE html>
           speakerId: 'exec_1',
           speakerRole: 'Lead Orchestrator (Root)',
           dept: 'executive',
-          text: 'Consensus reached. Disperse and execute with DoD!',
+          text: getConsensusLine(classification.theme),
           startFrame: 515,
           duration: 90
         },
         {
           isChorus: true,
           chorusItems: [
-            { speakerId: engId, text: 'Building! 🚀', dept: 'engineering' },
-            { speakerId: secId, text: 'Defending! 🛡️', dept: 'secops' },
-            { speakerId: intelId, text: 'Analyzing! 🔍', dept: 'intelligence' },
-            { speakerId: libId, text: 'Logged! 📚', dept: 'intelligence' }
+            { speakerId: s0.id, text: ROLE_CHORUS_EMOTES[s0.id] || 'Building! 🚀', dept: s0.dept },
+            { speakerId: s1.id, text: ROLE_CHORUS_EMOTES[s1.id] || 'Analyzing! 🔍', dept: s1.dept },
+            { speakerId: s2.id, text: ROLE_CHORUS_EMOTES[s2.id] || 'Defending! 🛡️', dept: s2.dept },
+            { speakerId: s3.id, text: ROLE_CHORUS_EMOTES[s3.id] || 'Logged! 📚', dept: s3.dept }
           ],
           startFrame: 610,
-          duration: 90
+          duration: 95
         }
       ];
     }
@@ -2267,35 +2492,32 @@ HTML_INTERFACE = """<!DOCTYPE html>
     }
 
     // Call a cross-department strategy alignment meeting in the War Room
-    function callTeamMeeting(customStaffIds, taskMission) {
+    function callTeamMeeting(customStaffIds, taskMission, rawUserPrompt) {
       const meetingPositions = MEETING_POSITIONS;
 
-      let selectedSlots = [];
-      if (customStaffIds && Array.isArray(customStaffIds) && customStaffIds.length > 0) {
-        selectedSlots = pixelOfficeStations.filter(s => customStaffIds.includes(s.id));
-      } else {
-        // Pick diverse delegates: 1 Core Dev, 1 Recon Scientist, 1 SecOps Pentester, 1 Scholar
-        const eng = pixelOfficeStations.find(s => s.id === 'eng_2') || pixelOfficeStations.find(s => s.dept === 'engineering' && s.assignedStaff);
-        const recon = pixelOfficeStations.find(s => s.id === 'lab_1') || pixelOfficeStations.find(s => s.dept === 'intelligence' && s.assignedStaff && !s.id.startsWith('exec'));
-        const sec = pixelOfficeStations.find(s => s.id === 'sec_7') || pixelOfficeStations.find(s => s.dept === 'secops' && s.assignedStaff && !s.id.startsWith('exec'));
-        const lib = pixelOfficeStations.find(s => s.id === 'lib_1');
+      let selectedStaffIds = customStaffIds;
+      if (!selectedStaffIds || !Array.isArray(selectedStaffIds) || selectedStaffIds.length === 0) {
+        selectedStaffIds = selectSmartDelegates(rawUserPrompt || taskMission);
+      }
 
-        [eng, recon, sec, lib].forEach(s => {
-          if (s && selectedSlots.length < meetingPositions.length) selectedSlots.push(s);
-        });
+      let selectedSlots = pixelOfficeStations.filter(s => selectedStaffIds.includes(s.id));
+      if (selectedSlots.length === 0) {
+        selectedSlots = OFFICE_STATIONS.filter(s => selectedStaffIds.includes(s.id));
       }
 
       if (selectedSlots.length === 0) return;
 
-      const mission = taskMission || currentOfficeMission || 'Sprint Architecture & Feature Delegation';
+      const classification = classifyPromptTheme(rawUserPrompt || taskMission);
+      const mission = taskMission || classification.cleanTopic || currentOfficeMission || 'Sprint Architecture & Feature Delegation';
       const participantIds = selectedSlots.map(s => s.id);
 
       activeMeetingSession = {
         active: true,
         mission: mission,
+        rawPrompt: rawUserPrompt || '',
         participants: participantIds,
         frame: 0,
-        dialogues: buildMeetingDialogues(mission, participantIds)
+        dialogues: buildMeetingDialogues(mission, participantIds, rawUserPrompt)
       };
 
       selectedSlots.forEach((slot, i) => {
@@ -2466,26 +2688,40 @@ HTML_INTERFACE = """<!DOCTYPE html>
       // 3. Local Lightweight Intent Dispatcher (0 Token / Instant Visual Action)
       const lower = rawText.toLowerCase();
 
-      // Pattern A: Meeting / Rapat / Diskusi
-      if (/(rapat|meeting|kumpul|ngomongin|diskusi|briefing|sync|war room)/i.test(lower)) {
-        let cleanTopic = rawText;
-        cleanTopic = cleanTopic.replace(/^(ayo|tolong|coba|semua|guys|rekan-rekan)\\s+/i, '');
-        if (cleanTopic.length > 40) cleanTopic = cleanTopic.slice(0, 37) + '...';
+      // Pattern A: Meeting / Rapat / Diskusi / Bahas / Kerjain / Sync / Audit
+      if (/(rapat|meeting|kumpul|ngomongin|diskusi|briefing|sync|war room|bahas|kerjain|audit|tinjau|eval)/i.test(lower)) {
+        const smartDelegateIds = selectSmartDelegates(rawText);
+        const classification = classifyPromptTheme(rawText);
+        const delegates = smartDelegateIds.map(id => {
+          return pixelOfficeStations.find(s => s.id === id) || OFFICE_STATIONS.find(s => s.id === id) || { id, title: 'Specialist', dept: 'engineering' };
+        });
 
+        let snippet = rawText.replace(/^(ayo|tolong|coba|semua|guys|rekan-rekan)\\s+/i, '').trim();
+        if (snippet.length > 38) snippet = snippet.slice(0, 35) + '...';
+
+        const delegateNames = delegates.map(d => d.title).join(', ');
         setTimeout(() => {
-          appendCommanderChat('Root Orchestrator', `Perintah diterima Commander! Mengumpulkan perwakilan seluruh divisi ke War Room untuk agenda: "${rawText}".`, 'text-cyan-300', 'text-cyan-400');
+          appendCommanderChat('Root Orchestrator', `Perintah diterima Commander! Memanggil delegasi (${delegateNames}) ke War Room untuk agenda: "${snippet}".`, 'text-cyan-300', 'text-cyan-400');
         }, 150);
 
         setTimeout(() => {
-          appendCommanderChat('Backend Core Dev', 'Siap Commander! Meninggalkan workstation menuju War Room.', 'text-purple-300', 'text-purple-400');
+          const d0 = delegates[0];
+          let d0Color = 'text-purple-300', d0Tag = 'text-purple-400';
+          if (d0.dept === 'secops') { d0Color = 'text-amber-300'; d0Tag = 'text-amber-400'; }
+          else if (d0.dept === 'intelligence') { d0Color = 'text-emerald-300'; d0Tag = 'text-emerald-400'; }
+          appendCommanderChat(d0.title, `Siap Commander! Workstation diamankan, otw War Room membawa data ${classification.cleanTopic}.`, d0Color, d0Tag);
         }, 450);
 
         setTimeout(() => {
-          appendCommanderChat('SecOps Sentinel', 'Sentinel bergerak ke ruang rapat.', 'text-amber-300', 'text-amber-400');
+          const d1 = delegates[1];
+          let d1Color = 'text-amber-300', d1Tag = 'text-amber-400';
+          if (d1.dept === 'engineering') { d1Color = 'text-purple-300'; d1Tag = 'text-purple-400'; }
+          else if (d1.dept === 'intelligence') { d1Color = 'text-emerald-300'; d1Tag = 'text-emerald-400'; }
+          appendCommanderChat(d1.title, `Standby di War Room. Pipeline & metrik siap dievaluasi.`, d1Color, d1Tag);
         }, 750);
 
-        // Convene War Room meeting with custom mission
-        callTeamMeeting(null, cleanTopic);
+        // Convene War Room meeting with dynamic participants and custom topic
+        callTeamMeeting(smartDelegateIds, classification.cleanTopic, rawText);
         return;
       }
 
@@ -2502,33 +2738,41 @@ HTML_INTERFACE = """<!DOCTYPE html>
       }
 
       // Pattern C: Security / Pentest / Audit / Zero-Trust
-      if (/(secops|security|audit|pentest|zero-trust|scan|vulnerability|threat)/i.test(lower)) {
+      if (/(secops|security|pentest|zero-trust|scan|vulnerability|threat)/i.test(lower)) {
+        const smartDelegateIds = selectSmartDelegates(rawText);
+        const delegates = smartDelegateIds.map(id => pixelOfficeStations.find(s => s.id === id) || OFFICE_STATIONS.find(s => s.id === id) || { id, title: 'Sentinel', dept: 'secops' });
         setTimeout(() => {
-          appendCommanderChat('Root Orchestrator', 'Menginstruksikan tim QA, SecOps, dan Red Team untuk threat surface enumeration!', 'text-cyan-300', 'text-cyan-400');
+          appendCommanderChat('Root Orchestrator', `Menginstruksikan tim QA & SecOps (${delegates.map(d => d.title).join(', ')}) untuk threat surface enumeration!`, 'text-cyan-300', 'text-cyan-400');
         }, 200);
         setTimeout(() => {
-          appendCommanderChat('SecOps Sentinel', 'Zero-Trust scanning aktif. Port monitoring dan credential gate dalam kondisi siaga 🛡️', 'text-amber-300', 'text-amber-400');
+          appendCommanderChat(delegates[0].title, 'Zero-Trust scanning aktif. Port monitoring dan credential gate dalam kondisi siaga 🛡️', 'text-amber-300', 'text-amber-400');
         }, 600);
         highlightZone('secops');
+        callTeamMeeting(smartDelegateIds, 'Security Audit & Threat Mapping', rawText);
         return;
       }
 
       // Pattern D: Engineering / Code / Deploy / Build
       if (/(deploy|build|coding|frontend|backend|feature|bug|refactor|ast|unit test)/i.test(lower)) {
+        const smartDelegateIds = selectSmartDelegates(rawText);
+        const delegates = smartDelegateIds.map(id => pixelOfficeStations.find(s => s.id === id) || OFFICE_STATIONS.find(s => s.id === id) || { id, title: 'Engineer', dept: 'engineering' });
         setTimeout(() => {
-          appendCommanderChat('Root Orchestrator', 'Menginstruksikan Autonomous Engineering Hub untuk memprioritaskan pipeline ini!', 'text-cyan-300', 'text-cyan-400');
+          appendCommanderChat('Root Orchestrator', `Menginstruksikan Engineering Hub (${delegates.map(d => d.title).join(', ')}) untuk memprioritaskan pipeline ini!`, 'text-cyan-300', 'text-cyan-400');
         }, 200);
         setTimeout(() => {
-          appendCommanderChat('Backend Core Dev', 'Understood Commander! Menyiapkan contract testing dan AST verification 🚀', 'text-purple-300', 'text-purple-400');
+          appendCommanderChat(delegates[0].title, 'Understood Commander! Menyiapkan contract testing dan AST verification 🚀', 'text-purple-300', 'text-purple-400');
         }, 600);
         highlightZone('engineering');
+        callTeamMeeting(smartDelegateIds, 'Engineering Pipeline & DoD', rawText);
         return;
       }
 
-      // Pattern E: General Status / Command
+      // Pattern E: General Status / Unmatched Command
+      const smartDelegateIds = selectSmartDelegates(rawText);
       setTimeout(() => {
-        appendCommanderChat('Root Orchestrator', `Perintah dicatat, Commander: "${rawText}". Seluruh 28 agen standby menjalankan arahan.`, 'text-cyan-300', 'text-cyan-400');
+        appendCommanderChat('Root Orchestrator', `Perintah dicatat, Commander: "${rawText}". Mengarahkan perwakilan divisi ke War Room.`, 'text-cyan-300', 'text-cyan-400');
       }, 250);
+      callTeamMeeting(smartDelegateIds, 'Strategic Directive', rawText);
     }
 
     // --- CANVAS ENGINE CONTROLLER & MAIN LOOP ---
@@ -3231,11 +3475,10 @@ HTML_INTERFACE = """<!DOCTYPE html>
         pixelOfficeCtx.fillStyle = '#94a3b8';
         let subText = 'Subagents navigating to conference table...';
         if (inSession) {
-          const step = Math.floor((pixelOfficeFrame / 60) % 4);
-          if (step === 0) subText = 'Root: Strategy Briefing & Delegation';
-          else if (step === 1) subText = 'Core Dev: API Pipeline & AST Refactor';
-          else if (step === 2) subText = 'SecOps: Zero-Trust Threat Verification';
-          else subText = 'Consensus Reached • Dispersing to Workstations';
+          const topicName = (activeMeetingSession && (activeMeetingSession.rawPrompt || activeMeetingSession.mission)) || 'Strategy Alignment';
+          let shortTopic = topicName.replace(/^(ayo|tolong|coba|semua|guys|rekan-rekan)\\s+/i, '').trim();
+          if (shortTopic.length > 30) shortTopic = shortTopic.slice(0, 27) + '...';
+          subText = `Agenda: ${shortTopic}`;
         }
         pixelOfficeCtx.fillText(subText, bx - bw / 2 + 7, by + 5);
         pixelOfficeCtx.restore();
