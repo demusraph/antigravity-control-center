@@ -1743,6 +1743,189 @@ HTML_INTERFACE = """<!DOCTYPE html>
       return rawRole.replace(' (Root)', '').replace(' Engineer', ' Dev');
     }
 
+    // ── AGENT LIFECYCLE ANIMATION STATE MACHINE ──
+    // Meeting positions around the War Room conference table (visiting subagents stand here)
+    const MEETING_POSITIONS = [
+      { col: 8, row: 6, dir: 'down' },    // Head of table
+      { col: 8, row: 10, dir: 'up' },     // Foot of table
+      { col: 5, row: 8, dir: 'right' },   // Left standing
+      { col: 11, row: 8, dir: 'left' }    // Right standing
+    ];
+
+    // Per-station animation state tracker (keyed by slot.id)
+    const agentAnimState = {};
+    let lastAmbientMeetingFrame = 0;
+    const AMBIENT_MEETING_INTERVAL_MIN = 1100;  // ~18s at 60fps
+    const AMBIENT_MEETING_INTERVAL_MAX = 1800;  // ~30s at 60fps
+    let nextAmbientMeetingFrame = AMBIENT_MEETING_INTERVAL_MIN;
+    const WALK_SPEED = 1.6;  // pixels per frame (~3s for a typical route)
+    const MEETING_DURATION = 240;   // frames in meeting (~4s)
+    const WORKING_DURATION = 540;   // frames working after meeting (~9s)
+
+    // Compute L-shaped waypoint route from desk to a meeting position
+    function computeRouteToMeeting(deskCol, deskRow, slotDir, meetPos) {
+      const CORRIDOR_Y = 15 * 16 - 8;  // Central corridor walkable Y
+      const route = [];
+      const startX = slotDir === 'up' ? (deskCol) * 16 : deskCol * 16;
+      const startY = slotDir === 'up' ? (deskRow - 1) * 16 + 10 : deskRow * 16 - 4;
+
+      // Step 1: Walk down/up to corridor
+      route.push({ x: startX, y: CORRIDOR_Y });
+
+      // Step 2: Walk along corridor to War Room door column
+      const meetX = meetPos.col * 16;
+      route.push({ x: meetX, y: CORRIDOR_Y });
+
+      // Step 3: Walk up from corridor into War Room to meeting position
+      const meetY = meetPos.row * 16 - 4;
+      route.push({ x: meetX, y: meetY });
+
+      return { route, startX, startY };
+    }
+
+    // Compute return route from meeting position back to desk
+    function computeRouteToDesk(meetPos, deskCol, deskRow, slotDir) {
+      const CORRIDOR_Y = 15 * 16 - 8;
+      const route = [];
+      const meetX = meetPos.col * 16;
+      const meetY = meetPos.row * 16 - 4;
+
+      // Step 1: Walk down to corridor
+      route.push({ x: meetX, y: CORRIDOR_Y });
+
+      // Step 2: Walk along corridor to desk column
+      const deskX = slotDir === 'up' ? (deskCol) * 16 : deskCol * 16;
+      route.push({ x: deskX, y: CORRIDOR_Y });
+
+      // Step 3: Walk up/down from corridor to desk
+      const deskY = slotDir === 'up' ? (deskRow - 1) * 16 + 10 : deskRow * 16 - 4;
+      route.push({ x: deskX, y: deskY });
+
+      return route;
+    }
+
+    // Update all agent animations each frame
+    function updateAgentAnimations() {
+      for (const slotId in agentAnimState) {
+        const anim = agentAnimState[slotId];
+        if (!anim || anim.state === 'idle' || anim.state === 'working_at_desk') continue;
+
+        // Handle stagger delay before walking starts
+        if (anim.delayFrames > 0) {
+          anim.delayFrames--;
+          continue;
+        }
+
+        if (anim.state === 'walk_to_meeting' || anim.state === 'walk_to_desk') {
+          if (anim.routeIdx < anim.route.length) {
+            const target = anim.route[anim.routeIdx];
+            const dx = target.x - anim.px;
+            const dy = target.y - anim.py;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < WALK_SPEED + 0.5) {
+              // Reached waypoint
+              anim.px = target.x;
+              anim.py = target.y;
+              anim.routeIdx++;
+            } else {
+              // Move toward waypoint
+              anim.px += (dx / dist) * WALK_SPEED;
+              anim.py += (dy / dist) * WALK_SPEED;
+            }
+
+            // Update facing direction based on dominant movement axis
+            if (Math.abs(dx) > Math.abs(dy) + 0.5) {
+              anim.walkDir = dx > 0 ? 'right' : 'left';
+            } else if (Math.abs(dy) > 0.5) {
+              anim.walkDir = dy > 0 ? 'down' : 'up';
+            }
+          } else {
+            // Route complete — transition to next state
+            if (anim.state === 'walk_to_meeting') {
+              anim.state = 'in_meeting';
+              anim.meetingTimer = 0;
+              anim.walkDir = anim.meetingPos.dir;  // Face toward table
+            } else {
+              // Arrived back at desk
+              anim.state = 'working_at_desk';
+              anim.workingTimer = 0;
+            }
+          }
+        } else if (anim.state === 'in_meeting') {
+          anim.meetingTimer++;
+          if (anim.meetingTimer >= MEETING_DURATION) {
+            // Meeting over — walk back to desk
+            anim.state = 'walk_to_desk';
+            anim.route = computeRouteToDesk(anim.meetingPos, anim.deskCol, anim.deskRow, anim.deskDir);
+            anim.routeIdx = 0;
+          }
+        } else if (anim.state === 'working_at_desk') {
+          anim.workingTimer++;
+          if (anim.workingTimer >= WORKING_DURATION) {
+            anim.state = 'idle';
+          }
+        }
+      }
+    }
+
+    // Trigger an ambient meeting — pick 2-3 random agents to walk to War Room
+    function triggerAmbientMeeting() {
+      const candidates = pixelOfficeStations.filter(s =>
+        s.assignedStaff &&
+        !s.id.startsWith('exec') &&
+        !s.id.startsWith('cafe') &&
+        (!agentAnimState[s.id] || agentAnimState[s.id].state === 'idle')
+      );
+
+      if (candidates.length < 2) return;
+
+      const count = 2 + Math.floor(Math.random() * 2);  // 2-3 agents
+      const shuffled = candidates.sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, Math.min(count, MEETING_POSITIONS.length));
+
+      selected.forEach((slot, i) => {
+        const meetPos = MEETING_POSITIONS[i];
+        const routeData = computeRouteToMeeting(slot.col, slot.row, slot.dir, meetPos);
+
+        agentAnimState[slot.id] = {
+          state: 'walk_to_meeting',
+          route: routeData.route,
+          routeIdx: 0,
+          px: routeData.startX,
+          py: routeData.startY,
+          deskCol: slot.col,
+          deskRow: slot.row,
+          deskDir: slot.dir,
+          walkDir: 'down',
+          meetingPos: meetPos,
+          meetingTimer: 0,
+          workingTimer: 0,
+          delayFrames: i * 18  // Stagger walk starts by ~0.3s each
+        };
+      });
+
+      // Randomize next meeting interval
+      nextAmbientMeetingFrame = pixelOfficeFrame +
+        AMBIENT_MEETING_INTERVAL_MIN +
+        Math.floor(Math.random() * (AMBIENT_MEETING_INTERVAL_MAX - AMBIENT_MEETING_INTERVAL_MIN));
+    }
+
+    function isAgentAtDesk(slotId) {
+      const anim = agentAnimState[slotId];
+      if (!anim) return true;
+      return anim.state === 'idle' || anim.state === 'working_at_desk';
+    }
+
+    function getAgentAnimAction(slotId) {
+      const anim = agentAnimState[slotId];
+      if (!anim) return null;
+      if (anim.state === 'walk_to_meeting' || anim.state === 'walk_to_desk') return 'walk';
+      if (anim.state === 'in_meeting') return 'idle';
+      if (anim.state === 'working_at_desk') return 'typing';
+      return null;
+    }
+
     // --- CANVAS ENGINE CONTROLLER & MAIN LOOP ---
     let pixelOfficeCanvas = null;
     let pixelOfficeCtx = null;
@@ -1986,6 +2169,14 @@ HTML_INTERFACE = """<!DOCTYPE html>
       if (!pixelOfficeCtx || !pixelOfficeCanvas) return;
       pixelOfficeFrame++;
       pixelOfficeCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+      // Update agent lifecycle animations (walk, meeting, return)
+      updateAgentAnimations();
+
+      // Trigger ambient meetings periodically for visual life
+      if (pixelOfficeFrame >= nextAmbientMeetingFrame) {
+        triggerAmbientMeeting();
+      }
 
       if (!pixelAssetsReady) {
         // Simple loading indicator
@@ -2242,17 +2433,9 @@ HTML_INTERFACE = """<!DOCTYPE html>
         });
       }
 
-      // Corridor Roaming Agent
-      const walkFrame = Math.floor(pixelOfficeFrame / 6);
-      const walkOffset = (Math.floor(pixelOfficeFrame / 2) % 120);
-      drawables.push({
-        zy: 15 * 16 + 32,
-        draw: () => {
-          drawCharFrame(pixelOfficeCtx, 2, 'right', 'walk', walkFrame, 16 * 16 + walkOffset, 15 * 16 - 8);
-        }
-      });
+      // (Corridor Roaming Agent removed — agents now walk dynamically via lifecycle state machine)
 
-      // ── DYNAMIC AGENT STATIONS & WORKSTATIONS ──
+      // ── DYNAMIC AGENT STATIONS & WORKSTATIONS (Lifecycle-Driven) ──
       const overheadBadges = [];
 
       for (let sIdx = 0; sIdx < pixelOfficeStations.length; sIdx++) {
@@ -2264,71 +2447,91 @@ HTML_INTERFACE = """<!DOCTYPE html>
         const isHovered = (pixelOfficeHoverIdx === sIdx);
         const isWorking = (staff.desk_status === 'WORKING');
         const charIdx = sIdx % 6;
+        const atDesk = isAgentAtDesk(slot.id);
+        const anim = agentAnimState[slot.id];
 
-        // Desks for Workstations (dirs == 'up')
+        // ── FURNITURE (always drawn regardless of agent position) ──
         if (slot.dir === 'up') {
           const deskC = slot.col - 1;
           const deskR = slot.row - 1;
-          // Desk
           addObj('assets/furniture/DESK/DESK_FRONT.png', deskC, deskR, 0, 0, false, isSlotActive, 28);
-          // Animated CRT phosphor glow
           const pcFrame = 1 + (Math.floor((pixelOfficeFrame + sIdx * 7) / 14) % 3);
           addObj(`assets/furniture/PC/PC_FRONT_ON_${pcFrame}.png`, deskC + 1, deskR - 1, 0, 0, false, isSlotActive, 28);
-          // Bench Stool
           addObj('assets/furniture/CUSHIONED_BENCH/CUSHIONED_BENCH.png', deskC + 1, deskR + 1, 0, 0, false, isSlotActive, 0);
+        }
 
-          // Seated Agent typing facing UP at screen
-          const tx = (deskC + 1) * 16;
-          const ty = deskR * 16 + 10;
-          const bob = isWorking ? (Math.floor((pixelOfficeFrame + sIdx) / 8) % 2) : 0;
+        // ── AGENT CHARACTER (position depends on lifecycle state) ──
+        if (atDesk) {
+          // Agent is at their desk (idle, working, or just returned)
+          if (slot.dir === 'up') {
+            const deskC = slot.col - 1;
+            const deskR = slot.row - 1;
+            const tx = (deskC + 1) * 16;
+            const ty = deskR * 16 + 10;
+            const isTyping = (anim && anim.state === 'working_at_desk') || isWorking;
+            const bob = isTyping ? (Math.floor((pixelOfficeFrame + sIdx) / 8) % 2) : 0;
+
+            drawables.push({
+              zy: ty + 18,
+              draw: () => {
+                pixelOfficeCtx.save();
+                pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
+                if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
+                drawCharFrame(pixelOfficeCtx, charIdx, 'up', isTyping ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
+                pixelOfficeCtx.restore();
+              }
+            });
+
+            overheadBadges.push({
+              bx: tx + 8 + (slot.badge_ox || 0),
+              by: ty + (slot.badge_oy || -24),
+              staff: staff, slot: slot, isHovered: isHovered
+            });
+          } else {
+            const tx = slot.col * 16;
+            const ty = slot.row * 16 - 4;
+            const isTyping = (anim && anim.state === 'working_at_desk') || isWorking;
+            const bob = isTyping ? (Math.floor((pixelOfficeFrame + sIdx) / 8) % 2) : 0;
+
+            drawables.push({
+              zy: ty + 16,
+              draw: () => {
+                pixelOfficeCtx.save();
+                pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
+                if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
+                drawCharFrame(pixelOfficeCtx, charIdx, slot.dir, isTyping ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
+                pixelOfficeCtx.restore();
+              }
+            });
+
+            overheadBadges.push({
+              bx: tx + 8 + (slot.badge_ox || 0),
+              by: ty + (slot.badge_oy || -24),
+              staff: staff, slot: slot, isHovered: isHovered
+            });
+          }
+        } else if (anim) {
+          // Agent is walking or in a meeting — draw at interpolated position
+          const apx = Math.round(anim.px);
+          const apy = Math.round(anim.py);
+          const animAction = getAgentAnimAction(slot.id) || 'walk';
+          const animDir = anim.walkDir || slot.dir;
 
           drawables.push({
-            zy: ty + 18,
+            zy: apy + 24,
             draw: () => {
               pixelOfficeCtx.save();
-              pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
-              if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
-              drawCharFrame(pixelOfficeCtx, charIdx, 'up', isWorking ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
+              pixelOfficeCtx.globalAlpha = 1.0;
+              drawCharFrame(pixelOfficeCtx, charIdx, animDir, animAction, pixelOfficeFrame + sIdx, apx, apy);
               pixelOfficeCtx.restore();
             }
           });
 
-          // Queue Overhead UI Badge for TOP-LAYER rendering pass
-          const badgeOx = slot.badge_ox || 0;
-          const badgeOy = slot.badge_oy || -24;
+          // Badge follows the walking agent
           overheadBadges.push({
-            bx: tx + 8 + badgeOx,
-            by: ty + badgeOy,
-            staff: staff,
-            slot: slot,
-            isHovered: isHovered
-          });
-        } else {
-          // Table or Lounge seats (dirs == 'right', 'left', 'down')
-          const tx = slot.col * 16;
-          const ty = slot.row * 16 - 4;
-          const bob = isWorking ? (Math.floor((pixelOfficeFrame + sIdx) / 8) % 2) : 0;
-
-          drawables.push({
-            zy: ty + 16,
-            draw: () => {
-              pixelOfficeCtx.save();
-              pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
-              if (isHovered) drawHoverReticle(pixelOfficeCtx, tx + 8, ty + 16);
-              drawCharFrame(pixelOfficeCtx, charIdx, slot.dir, isWorking ? 'typing' : 'idle', pixelOfficeFrame + sIdx, tx, ty - bob);
-              pixelOfficeCtx.restore();
-            }
-          });
-
-          // Queue Overhead UI Badge for TOP-LAYER rendering pass
-          const badgeOx = slot.badge_ox || 0;
-          const badgeOy = slot.badge_oy || -24;
-          overheadBadges.push({
-            bx: tx + 8 + badgeOx,
-            by: ty + badgeOy,
-            staff: staff,
-            slot: slot,
-            isHovered: isHovered
+            bx: apx + 8,
+            by: apy - 14,
+            staff: staff, slot: slot, isHovered: false
           });
         }
       }
@@ -2442,6 +2645,18 @@ HTML_INTERFACE = """<!DOCTYPE html>
       });
 
       pixelOfficeStations = stations;
+
+      // Initialize animation state for all stations
+      stations.forEach(slot => {
+        if (!agentAnimState[slot.id]) {
+          agentAnimState[slot.id] = { state: 'idle' };
+        }
+      });
+
+      // Schedule first ambient meeting after a short warmup
+      if (nextAmbientMeetingFrame < pixelOfficeFrame + 300) {
+        nextAmbientMeetingFrame = pixelOfficeFrame + 300 + Math.floor(Math.random() * 300);
+      }
 
       if (!pixelOfficeAnimationId) {
         pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
