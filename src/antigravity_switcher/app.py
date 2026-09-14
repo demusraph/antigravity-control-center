@@ -1243,6 +1243,12 @@ HTML_INTERFACE = """<!DOCTYPE html>
             </button>
           </div>
 
+          <!-- Call Meeting Action Button -->
+          <button onclick="callTeamMeeting()" id="btn-call-meeting" title="Call Subagents to War Room for Strategy Alignment" class="btn-spring px-2.5 py-0.5 rounded border border-amber-500/50 bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 font-mono text-[10.5px] flex items-center gap-1.5 transition-all cursor-pointer shrink-0">
+            <i data-lucide="users" class="w-3 h-3 text-amber-400"></i>
+            <span class="font-semibold">Call Meeting</span>
+          </button>
+
           <!-- Stage Size & CRT Overlay Tools -->
           <div class="flex items-center gap-1 shrink-0 font-mono text-[10.5px]">
             <button onclick="setPixelStageScale('fit')" id="btn-stage-fit" class="btn-spring px-2 py-0.5 rounded border border-accent/40 bg-accent/20 text-accent transition-all font-medium">Fit</button>
@@ -1746,60 +1752,114 @@ HTML_INTERFACE = """<!DOCTYPE html>
     // ── AGENT LIFECYCLE ANIMATION STATE MACHINE ──
     // Meeting positions around the War Room conference table (visiting subagents stand here)
     const MEETING_POSITIONS = [
-      { col: 8, row: 6, dir: 'down' },    // Head of table
-      { col: 8, row: 10, dir: 'up' },     // Foot of table
-      { col: 5, row: 8, dir: 'right' },   // Left standing
-      { col: 11, row: 8, dir: 'left' }    // Right standing
+      { col: 8, row: 5, dir: 'down', title: 'Strategy Lead' },    // Head of table (top)
+      { col: 8, row: 10, dir: 'up', title: 'Engineering Rep' },   // Foot of table (bottom)
+      { col: 5, row: 8, dir: 'right', title: 'Intelligence Rep' }, // Left side (facing table)
+      { col: 11, row: 8, dir: 'left', title: 'SecOps Rep' }       // Right side (facing table)
     ];
 
     // Per-station animation state tracker (keyed by slot.id)
     const agentAnimState = {};
     let lastAmbientMeetingFrame = 0;
-    const AMBIENT_MEETING_INTERVAL_MIN = 1100;  // ~18s at 60fps
-    const AMBIENT_MEETING_INTERVAL_MAX = 1800;  // ~30s at 60fps
+    const AMBIENT_MEETING_INTERVAL_MIN = 1200;  // ~20s at 60fps
+    const AMBIENT_MEETING_INTERVAL_MAX = 2000;  // ~33s at 60fps
     let nextAmbientMeetingFrame = AMBIENT_MEETING_INTERVAL_MIN;
-    const WALK_SPEED = 1.6;  // pixels per frame (~3s for a typical route)
-    const MEETING_DURATION = 240;   // frames in meeting (~4s)
-    const WORKING_DURATION = 540;   // frames working after meeting (~9s)
+    const WALK_SPEED = 2.4;  // brisk natural walking speed (2.4 px/frame)
+    const MEETING_DURATION = 360;   // frames in meeting (~6s at 60fps)
+    const WORKING_DURATION = 600;   // frames working after meeting (~10s at 60fps)
 
-    // Compute L-shaped waypoint route from desk to a meeting position
+    function getRoomDoorCol(col, row) {
+      if (col < 16) return 8;
+      if (col < 31) return 24;
+      return 39;
+    }
+
+    // Compute door-aware waypoint route from desk to War Room meeting position
     function computeRouteToMeeting(deskCol, deskRow, slotDir, meetPos) {
-      const CORRIDOR_Y = 15 * 16 - 8;  // Central corridor walkable Y
+      const CORRIDOR_Y = 15 * 16 + 2;  // Central corridor crimson runner Y (y=242)
       const route = [];
-      const startX = slotDir === 'up' ? (deskCol) * 16 : deskCol * 16;
-      const startY = slotDir === 'up' ? (deskRow - 1) * 16 + 10 : deskRow * 16 - 4;
-
-      // Step 1: Walk down/up to corridor
-      route.push({ x: startX, y: CORRIDOR_Y });
-
-      // Step 2: Walk along corridor to War Room door column
+      const startX = deskCol * 16;
+      const startY = slotDir === 'up' ? (deskRow - 1) * 16 + 18 : deskRow * 16 - 4;
+      const doorCol = getRoomDoorCol(deskCol, deskRow);
+      const doorX = doorCol * 16;
+      const warRoomDoorX = 8 * 16;
       const meetX = meetPos.col * 16;
-      route.push({ x: meetX, y: CORRIDOR_Y });
-
-      // Step 3: Walk up from corridor into War Room to meeting position
       const meetY = meetPos.row * 16 - 4;
-      route.push({ x: meetX, y: meetY });
+
+      // 1. Exit room through its designated doorway into the central corridor
+      if (deskRow <= 14) {
+        route.push({ x: startX, y: 13 * 16 });
+        route.push({ x: doorX, y: 13 * 16 });
+        route.push({ x: doorX, y: CORRIDOR_Y });
+      } else {
+        route.push({ x: startX, y: 17 * 16 });
+        route.push({ x: doorX, y: 17 * 16 });
+        route.push({ x: doorX, y: CORRIDOR_Y });
+      }
+
+      // 2. Walk along crimson corridor runner to War Room portal
+      route.push({ x: warRoomDoorX, y: CORRIDOR_Y });
+
+      // 3. Step through War Room portal
+      route.push({ x: warRoomDoorX, y: 13 * 16 });
+
+      // 4. Navigate around conference table (table: cols 7..9, rows 6..9)
+      if (meetPos.col === 8 && meetPos.row <= 6) {
+        // Head of table: route around left flank
+        route.push({ x: 5 * 16, y: 13 * 16 });
+        route.push({ x: 5 * 16, y: meetY });
+        route.push({ x: meetX, y: meetY });
+      } else if (meetPos.col === 8 && meetPos.row >= 10) {
+        // Foot of table: straight up
+        route.push({ x: meetX, y: meetY });
+      } else {
+        // Left or right flank
+        route.push({ x: meetX, y: 13 * 16 });
+        route.push({ x: meetX, y: meetY });
+      }
 
       return { route, startX, startY };
     }
 
-    // Compute return route from meeting position back to desk
+    // Compute door-aware return route from meeting position back to desk
     function computeRouteToDesk(meetPos, deskCol, deskRow, slotDir) {
-      const CORRIDOR_Y = 15 * 16 - 8;
+      const CORRIDOR_Y = 15 * 16 + 2;
       const route = [];
       const meetX = meetPos.col * 16;
       const meetY = meetPos.row * 16 - 4;
+      const warRoomDoorX = 8 * 16;
+      const doorCol = getRoomDoorCol(deskCol, deskRow);
+      const doorX = doorCol * 16;
+      const destX = deskCol * 16;
+      const destY = slotDir === 'up' ? (deskRow - 1) * 16 + 18 : deskRow * 16 - 4;
 
-      // Step 1: Walk down to corridor
-      route.push({ x: meetX, y: CORRIDOR_Y });
+      // 1. Depart meeting position back to War Room doorway
+      if (meetPos.col === 8 && meetPos.row <= 6) {
+        route.push({ x: 5 * 16, y: meetY });
+        route.push({ x: 5 * 16, y: 13 * 16 });
+        route.push({ x: warRoomDoorX, y: 13 * 16 });
+      } else {
+        route.push({ x: meetX, y: 13 * 16 });
+        route.push({ x: warRoomDoorX, y: 13 * 16 });
+      }
 
-      // Step 2: Walk along corridor to desk column
-      const deskX = slotDir === 'up' ? (deskCol) * 16 : deskCol * 16;
-      route.push({ x: deskX, y: CORRIDOR_Y });
+      // 2. Step through doorway into central corridor runner
+      route.push({ x: warRoomDoorX, y: CORRIDOR_Y });
 
-      // Step 3: Walk up/down from corridor to desk
-      const deskY = slotDir === 'up' ? (deskRow - 1) * 16 + 10 : deskRow * 16 - 4;
-      route.push({ x: deskX, y: deskY });
+      // 3. Walk along corridor to destination room entrance
+      route.push({ x: doorX, y: CORRIDOR_Y });
+
+      // 4. Enter destination room
+      if (deskRow <= 14) {
+        route.push({ x: doorX, y: 13 * 16 });
+        route.push({ x: destX, y: 13 * 16 });
+      } else {
+        route.push({ x: doorX, y: 17 * 16 });
+        route.push({ x: destX, y: 17 * 16 });
+      }
+
+      // 5. Arrive at desk workstation
+      route.push({ x: destX, y: destY });
 
       return route;
     }
@@ -1869,23 +1929,29 @@ HTML_INTERFACE = """<!DOCTYPE html>
       }
     }
 
-    // Trigger an ambient meeting — pick 2-3 random agents to walk to War Room
-    function triggerAmbientMeeting() {
-      const candidates = pixelOfficeStations.filter(s =>
-        s.assignedStaff &&
-        !s.id.startsWith('exec') &&
-        !s.id.startsWith('cafe') &&
-        (!agentAnimState[s.id] || agentAnimState[s.id].state === 'idle')
-      );
+    // Call a cross-department strategy alignment meeting in the War Room
+    function callTeamMeeting(customStaffIds) {
+      const meetingPositions = MEETING_POSITIONS;
 
-      if (candidates.length < 2) return;
+      let selectedSlots = [];
+      if (customStaffIds && Array.isArray(customStaffIds) && customStaffIds.length > 0) {
+        selectedSlots = pixelOfficeStations.filter(s => customStaffIds.includes(s.id));
+      } else {
+        // Pick diverse delegates: 1 Core Dev, 1 Recon Scientist, 1 SecOps Pentester, 1 Scholar
+        const eng = pixelOfficeStations.find(s => s.id === 'eng_2') || pixelOfficeStations.find(s => s.dept === 'engineering' && s.assignedStaff);
+        const recon = pixelOfficeStations.find(s => s.id === 'lab_1') || pixelOfficeStations.find(s => s.dept === 'intelligence' && s.assignedStaff && !s.id.startsWith('exec'));
+        const sec = pixelOfficeStations.find(s => s.id === 'sec_7') || pixelOfficeStations.find(s => s.dept === 'secops' && s.assignedStaff && !s.id.startsWith('exec'));
+        const lib = pixelOfficeStations.find(s => s.id === 'lib_1');
 
-      const count = 2 + Math.floor(Math.random() * 2);  // 2-3 agents
-      const shuffled = candidates.sort(() => Math.random() - 0.5);
-      const selected = shuffled.slice(0, Math.min(count, MEETING_POSITIONS.length));
+        [eng, recon, sec, lib].forEach(s => {
+          if (s && selectedSlots.length < meetingPositions.length) selectedSlots.push(s);
+        });
+      }
 
-      selected.forEach((slot, i) => {
-        const meetPos = MEETING_POSITIONS[i];
+      if (selectedSlots.length === 0) return;
+
+      selectedSlots.forEach((slot, i) => {
+        const meetPos = meetingPositions[i % meetingPositions.length];
         const routeData = computeRouteToMeeting(slot.col, slot.row, slot.dir, meetPos);
 
         agentAnimState[slot.id] = {
@@ -1901,11 +1967,31 @@ HTML_INTERFACE = """<!DOCTYPE html>
           meetingPos: meetPos,
           meetingTimer: 0,
           workingTimer: 0,
-          delayFrames: i * 18  // Stagger walk starts by ~0.3s each
+          delayFrames: i * 20  // Stagger walk starts by ~0.33s
         };
       });
 
-      // Randomize next meeting interval
+      console.log(`[Meeting] Called sync meeting with ${selectedSlots.map(s => s.assignedStaff?.role || s.title).join(', ')}`);
+
+      const btn = document.getElementById('btn-call-meeting');
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 text-amber-400 animate-spin"></i><span class="font-semibold text-amber-200">Meeting in Session...</span>`;
+        if (window.lucide) lucide.createIcons();
+        setTimeout(() => {
+          const b = document.getElementById('btn-call-meeting');
+          if (b) {
+            b.innerHTML = `<i data-lucide="users" class="w-3 h-3 text-amber-400"></i><span class="font-semibold">Call Meeting</span>`;
+            if (window.lucide) lucide.createIcons();
+          }
+        }, (MEETING_DURATION + 360) * 16);
+      }
+    }
+
+    window.callTeamMeeting = callTeamMeeting;
+
+    // Trigger an ambient meeting periodically
+    function triggerAmbientMeeting() {
+      callTeamMeeting();
       nextAmbientMeetingFrame = pixelOfficeFrame +
         AMBIENT_MEETING_INTERVAL_MIN +
         Math.floor(Math.random() * (AMBIENT_MEETING_INTERVAL_MAX - AMBIENT_MEETING_INTERVAL_MIN));
@@ -2001,12 +2087,26 @@ HTML_INTERFACE = """<!DOCTYPE html>
     function drawFloatingBadge(ctx, px, py, staff, slot, isHovered, frame) {
       ctx.save();
       const rawTitle = staff.role || slot.title || 'Staff Agent';
-      const roleText = getFormattedRole(rawTitle);
+      let roleText = getFormattedRole(rawTitle);
 
+      const anim = agentAnimState[slot.id];
       let dotColor = '#10b981';
-      if (staff.desk_status === 'IN_MEETING') dotColor = '#f59e0b';
-      else if (staff.desk_status === 'STANDBY') dotColor = '#94a3b8';
-      else if (staff.desk_status === 'BLOCKED') dotColor = '#ef4444';
+      if (anim && anim.state === 'in_meeting') {
+        dotColor = '#f59e0b';
+        roleText = roleText + ' [Sync]';
+      } else if (anim && anim.state === 'walk_to_meeting') {
+        dotColor = '#38bdf8';
+        roleText = roleText + ' [En Route]';
+      } else if (anim && anim.state === 'walk_to_desk') {
+        dotColor = '#38bdf8';
+        roleText = roleText + ' [Return]';
+      } else if (staff.desk_status === 'IN_MEETING') {
+        dotColor = '#f59e0b';
+      } else if (staff.desk_status === 'STANDBY' && (!anim || anim.state === 'idle')) {
+        dotColor = '#94a3b8';
+      } else if (staff.desk_status === 'BLOCKED') {
+        dotColor = '#ef4444';
+      }
 
       let borderColor = 'rgba(255,255,255,0.18)';
       if (slot.dept === 'executive') borderColor = 'rgba(56, 189, 248, 0.75)';
@@ -2560,6 +2660,63 @@ HTML_INTERFACE = """<!DOCTYPE html>
           console.error("Overhead badge render error:", e);
         }
       });
+
+      // ── TOP-MOST WAR ROOM HUD MEETING BANNER (Active when agents assemble) ──
+      const activeMeetingStaff = [];
+      for (const slotId in agentAnimState) {
+        const anim = agentAnimState[slotId];
+        if (anim && (anim.state === 'in_meeting' || anim.state === 'walk_to_meeting')) {
+          activeMeetingStaff.push(slotId);
+        }
+      }
+
+      if (activeMeetingStaff.length > 0) {
+        const inSession = activeMeetingStaff.some(sId => agentAnimState[sId].state === 'in_meeting');
+        const bx = 8 * 16;  // Center X = 128
+        const by = 4 * 16 - 2; // Y = 62
+        const bw = 152, bh = 22;
+
+        pixelOfficeCtx.save();
+        // High-contrast drop shadow
+        pixelOfficeCtx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        pixelOfficeCtx.fillRect(bx - bw / 2 + 1, by - bh / 2 + 1, bw, bh);
+
+        // Dark slate backdrop
+        pixelOfficeCtx.fillStyle = 'rgba(12, 15, 24, 0.96)';
+        pixelOfficeCtx.fillRect(bx - bw / 2, by - bh / 2, bw, bh);
+
+        // Border
+        pixelOfficeCtx.strokeStyle = inSession ? '#f59e0b' : '#38bdf8';
+        pixelOfficeCtx.lineWidth = 1.2;
+        pixelOfficeCtx.strokeRect(bx - bw / 2, by - bh / 2, bw, bh);
+
+        // Pulsing Status Dot
+        const pulse = 1.6 + 0.5 * Math.sin(pixelOfficeFrame * 0.18);
+        pixelOfficeCtx.fillStyle = inSession ? '#fbbf24' : '#38bdf8';
+        pixelOfficeCtx.beginPath();
+        pixelOfficeCtx.arc(bx - bw / 2 + 7, by - 3, pulse, 0, Math.PI * 2);
+        pixelOfficeCtx.fill();
+
+        // Header Text
+        pixelOfficeCtx.font = 'bold 7px "JetBrains Mono", Consolas, monospace';
+        pixelOfficeCtx.fillStyle = inSession ? '#fbbf24' : '#38bdf8';
+        pixelOfficeCtx.textBaseline = 'middle';
+        pixelOfficeCtx.fillText(inSession ? 'WAR ROOM: SYNC ALIGNMENT' : 'WAR ROOM: DELEGATES EN ROUTE', bx - bw / 2 + 13, by - 3);
+
+        // Subtitle Narrative
+        pixelOfficeCtx.font = '6px "JetBrains Mono", Consolas, monospace';
+        pixelOfficeCtx.fillStyle = '#94a3b8';
+        let subText = 'Subagents navigating to conference table...';
+        if (inSession) {
+          const step = Math.floor((pixelOfficeFrame / 60) % 4);
+          if (step === 0) subText = 'Root: Strategy Briefing & Delegation';
+          else if (step === 1) subText = 'Core Dev: API Pipeline & AST Refactor';
+          else if (step === 2) subText = 'SecOps: Zero-Trust Threat Verification';
+          else subText = 'Consensus Reached • Dispersing to Workstations';
+        }
+        pixelOfficeCtx.fillText(subText, bx - bw / 2 + 7, by + 5);
+        pixelOfficeCtx.restore();
+      }
 
       pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
     }
