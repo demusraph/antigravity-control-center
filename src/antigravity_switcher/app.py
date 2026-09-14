@@ -1156,7 +1156,6 @@ HTML_INTERFACE = """<!DOCTYPE html>
   <nav class="flex border-b border-hairline px-4 gap-4 sm:gap-5 text-xs shrink-0 bg-surface-2/40 overflow-x-auto whitespace-nowrap select-none">
     <div role="button" onclick="setTab('accounts')" id="tab-accounts" class="py-2.5 font-medium border-b-2 border-accent text-white transition-all cursor-pointer whitespace-nowrap shrink-0">Accounts</div>
     <div role="button" onclick="setTab('subagents')" id="tab-subagents" class="py-2.5 font-medium border-b-2 border-transparent text-[#6E6E6E] hover:text-[#CCCCCC] transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0">
-      <i data-lucide="building-2" class="w-3.5 h-3.5 shrink-0"></i>
       <span class="whitespace-nowrap">Agents Office</span>
       <span id="subagents-pulse-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 hidden shrink-0 animate-pulse"></span>
     </div>
@@ -1183,28 +1182,24 @@ HTML_INTERFACE = """<!DOCTYPE html>
       <!-- Session Switcher & View Switcher Bar -->
       <div class="space-y-2">
         <div class="flex items-center justify-between text-[11px] text-gray-400">
-          <div class="flex items-center gap-1.5 text-gray-300 font-medium">
-            <i data-lucide="building-2" class="w-3.5 h-3.5 text-accent"></i>
+          <div class="flex items-center gap-1.5 text-gray-300 font-medium font-mono text-[11px]">
             <span>Office Switchboard & Sessions</span>
           </div>
           <div class="flex items-center gap-2">
             <!-- View Mode Switcher -->
             <div class="flex items-center bg-surface-2 p-0.5 rounded-lg border border-hairline text-[11px]">
               <button id="btn-view-pixel" onclick="setOfficeView('pixel')" class="px-2.5 py-1 rounded font-medium transition-all flex items-center gap-1.5 bg-accent/20 text-accent border border-accent/40">
-                <i data-lucide="gamepad-2" class="w-3 h-3"></i>
                 <span>Pixel HQ</span>
               </button>
               <button id="btn-view-office" onclick="setOfficeView('office')" class="px-2.5 py-1 rounded font-medium transition-all flex items-center gap-1.5 text-gray-400 hover:text-white border border-transparent">
-                <i data-lucide="layout-grid" class="w-3 h-3"></i>
                 <span>Division Cards</span>
               </button>
               <button id="btn-view-dag" onclick="setOfficeView('dag')" class="px-2.5 py-1 rounded font-medium transition-all flex items-center gap-1.5 text-gray-400 hover:text-white border border-transparent">
-                <i data-lucide="git-branch" class="w-3 h-3"></i>
                 <span>DAG Tree</span>
               </button>
             </div>
-            <button onclick="fetchSubagents(currentSelectedCid)" title="Refresh Telemetry" class="hover:text-white p-1 rounded hover:bg-surface-2 flex items-center gap-1 transition-colors text-[11px]">
-              <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+            <button onclick="fetchSubagents(currentSelectedCid)" title="Refresh Telemetry" class="hover:text-white px-2 py-0.5 rounded hover:bg-surface-2 flex items-center gap-1 transition-colors text-[11px] font-mono text-gray-400 border border-hairline">
+              <span>Refresh</span>
             </button>
           </div>
         </div>
@@ -1226,26 +1221,25 @@ HTML_INTERFACE = """<!DOCTYPE html>
           <div class="flex items-center gap-1.5 overflow-x-auto min-w-0">
             <span class="text-[10px] font-mono text-gray-500 uppercase tracking-wider shrink-0">Zones:</span>
             <button onclick="highlightZone('all')" id="filter-zone-all" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-accent/20 border border-accent/40 text-accent font-mono transition-all">All (28)</button>
-            <button onclick="highlightZone('engineering')" id="filter-zone-eng" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 font-mono flex items-center gap-1 transition-all">
-              <i data-lucide="code-2" class="w-3 h-3 text-purple-400"></i> Eng <b class="text-white">8</b>
+            <button onclick="highlightZone('engineering')" id="filter-zone-eng" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 font-mono transition-all">
+              Eng <b class="text-white">8</b>
             </button>
-            <button onclick="highlightZone('intelligence')" id="filter-zone-intel" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 font-mono flex items-center gap-1 transition-all">
-              <i data-lucide="flask-conical" class="w-3 h-3 text-emerald-400"></i> Lab <b class="text-white">6</b>
+            <button onclick="highlightZone('intelligence')" id="filter-zone-intel" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 font-mono transition-all">
+              Lab <b class="text-white">6</b>
             </button>
-            <button onclick="highlightZone('executive')" id="filter-zone-exec" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-blue-950/40 hover:bg-blue-900/60 border border-blue-800/60 text-blue-300 font-mono flex items-center gap-1 transition-all">
-              <i data-lucide="briefcase" class="w-3 h-3 text-blue-400"></i> Exec <b class="text-white">3</b>
+            <button onclick="highlightZone('executive')" id="filter-zone-exec" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-blue-950/40 hover:bg-blue-900/60 border border-blue-800/60 text-blue-300 font-mono transition-all">
+              Exec <b class="text-white">3</b>
             </button>
-            <button onclick="highlightZone('secops')" id="filter-zone-sec" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 font-mono flex items-center gap-1 transition-all">
-              <i data-lucide="shield-check" class="w-3 h-3 text-amber-400"></i> War Room <b class="text-white">8</b>
+            <button onclick="highlightZone('secops')" id="filter-zone-sec" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 font-mono transition-all">
+              War Room <b class="text-white">8</b>
             </button>
-            <button onclick="highlightZone('cafe')" id="filter-zone-cafe" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-orange-950/40 hover:bg-orange-900/60 border border-orange-800/60 text-orange-300 font-mono flex items-center gap-1 transition-all">
-              <i data-lucide="coffee" class="w-3 h-3 text-orange-400"></i> Cafe <b class="text-white">3</b>
+            <button onclick="highlightZone('cafe')" id="filter-zone-cafe" class="btn-spring px-2 py-0.5 rounded text-[10px] bg-orange-950/40 hover:bg-orange-900/60 border border-orange-800/60 text-orange-300 font-mono transition-all">
+              Cafe <b class="text-white">3</b>
             </button>
           </div>
 
           <!-- Call Meeting Action Button -->
-          <button onclick="callTeamMeeting()" id="btn-call-meeting" title="Call Subagents to War Room for Strategy Alignment" class="btn-spring px-2.5 py-0.5 rounded border border-amber-500/50 bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 font-mono text-[10.5px] flex items-center gap-1.5 transition-all cursor-pointer shrink-0">
-            <i data-lucide="users" class="w-3 h-3 text-amber-400"></i>
+          <button onclick="callTeamMeeting()" id="btn-call-meeting" title="Call Subagents to War Room for Strategy Alignment" class="btn-spring px-2.5 py-0.5 rounded border border-amber-500/50 bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 font-mono text-[10.5px] transition-all cursor-pointer shrink-0">
             <span class="font-semibold">Call Meeting</span>
           </button>
 
@@ -1293,29 +1287,28 @@ HTML_INTERFACE = """<!DOCTYPE html>
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                 <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
               </span>
-              <span class="font-bold text-white font-mono text-[11px] flex items-center gap-1.5 truncate">
-                <i data-lucide="radio" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
-                <span>COMMANDER CONSOLE & HQ INTERCOM</span>
+              <span class="font-bold text-white font-mono text-[11px] truncate">
+                COMMANDER CONSOLE & HQ INTERCOM
               </span>
               <span class="text-[10px] text-gray-500 font-mono hidden md:inline shrink-0">• 28 Agents Online</span>
             </div>
 
             <!-- Quick Directives Chips -->
             <div class="flex items-center gap-1.5 overflow-x-auto text-[10px] font-mono shrink-0 ml-2">
-              <button onclick="sendQuickDirective('meeting')" title="Panggil seluruh divisi ke War Room" class="btn-spring px-2 py-0.5 rounded bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 transition-all flex items-center gap-1 cursor-pointer">
-                <span>📢 Rapat Divisi</span>
+              <button onclick="sendQuickDirective('meeting')" title="Panggil seluruh divisi ke War Room" class="btn-spring px-2 py-0.5 rounded bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 transition-all cursor-pointer">
+                <span>Rapat Divisi</span>
               </button>
-              <button onclick="sendQuickDirective('break')" title="Rehat ke Espresso Lounge" class="btn-spring px-2 py-0.5 rounded bg-orange-950/40 hover:bg-orange-900/60 border border-orange-800/60 text-orange-300 transition-all flex items-center gap-1 cursor-pointer">
-                <span>☕ Rehat Kopi</span>
+              <button onclick="sendQuickDirective('break')" title="Rehat ke Espresso Lounge" class="btn-spring px-2 py-0.5 rounded bg-orange-950/40 hover:bg-orange-900/60 border border-orange-800/60 text-orange-300 transition-all cursor-pointer">
+                <span>Rehat Kopi</span>
               </button>
-              <button onclick="sendQuickDirective('secops')" title="Instruksikan SecOps Audit" class="btn-spring px-2 py-0.5 rounded bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 transition-all flex items-center gap-1 cursor-pointer">
-                <span>🛡️ SecOps Audit</span>
+              <button onclick="sendQuickDirective('secops')" title="Instruksikan SecOps Audit" class="btn-spring px-2 py-0.5 rounded bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 transition-all cursor-pointer">
+                <span>SecOps Audit</span>
               </button>
-              <button onclick="sendQuickDirective('engineering')" title="Instruksikan Sprint Build" class="btn-spring px-2 py-0.5 rounded bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 transition-all flex items-center gap-1 cursor-pointer">
-                <span>🚀 Sprint Build</span>
+              <button onclick="sendQuickDirective('engineering')" title="Instruksikan Sprint Build" class="btn-spring px-2 py-0.5 rounded bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 transition-all cursor-pointer">
+                <span>Sprint Build</span>
               </button>
-              <button onclick="toggleConsoleDock()" id="btn-toggle-console" title="Collapse/Expand Console" class="text-gray-400 hover:text-white p-1 rounded hover:bg-surface-3 transition-colors ml-1 cursor-pointer">
-                <i data-lucide="chevron-down" id="icon-toggle-console" class="w-3.5 h-3.5"></i>
+              <button onclick="toggleConsoleDock()" id="btn-toggle-console" title="Collapse/Expand Console" class="text-gray-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-surface-3 transition-colors ml-1 cursor-pointer font-mono text-[10px]">
+                <span id="label-toggle-console">[Hide]</span>
               </button>
             </div>
           </div>
@@ -1343,7 +1336,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
                   <label class="flex items-center gap-1.5 cursor-pointer select-none">
                     <input type="checkbox" id="chk-live-token-mode" onchange="updateConsoleModeBadge()" class="rounded bg-surface-2 border-hairline text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer">
                     <span id="console-mode-badge" class="px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-950/60 border border-emerald-800/60 text-emerald-400 transition-all">
-                      🟢 0-Token Directive (Visual Office)
+                      [0-Token] Visual Office Directive
                     </span>
                   </label>
                 </div>
@@ -1353,12 +1346,10 @@ HTML_INTERFACE = """<!DOCTYPE html>
               <!-- Input Form -->
               <div class="flex items-center gap-2">
                 <div class="relative flex-1">
-                  <i data-lucide="terminal" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
-                  <input id="commander-input" type="text" onkeydown="handleCommanderKey(event)" placeholder="Ketik perintah (contoh: 'ayo masing masing divisi ikut rapat, ada yang gua mau ngomongin')..." class="w-full bg-[#07090f] border border-hairline rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/80 font-mono transition-colors">
+                  <input id="commander-input" type="text" onkeydown="handleCommanderKey(event)" placeholder="Ketik perintah (contoh: 'ayo masing masing divisi ikut rapat, ada yang gua mau ngomongin')..." class="w-full bg-[#07090f] border border-hairline rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/80 font-mono transition-colors">
                 </div>
-                <button onclick="dispatchCommanderCommand()" id="btn-commander-send" class="btn-spring px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-cyan-900/30 cursor-pointer shrink-0">
-                  <span>Send</span>
-                  <i data-lucide="send" class="w-3 h-3"></i>
+                <button onclick="dispatchCommanderCommand()" id="btn-commander-send" class="btn-spring px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition-all shadow-lg shadow-cyan-900/30 cursor-pointer shrink-0">
+                  Send
                 </button>
               </div>
             </div>
@@ -1377,7 +1368,6 @@ HTML_INTERFACE = """<!DOCTYPE html>
       <div id="dag-tree-view" class="hidden border border-hairline rounded-lg bg-surface p-4 space-y-3">
         <div class="flex items-center justify-between border-b border-hairline pb-2.5">
           <div class="flex items-center gap-2">
-            <i data-lucide="git-branch" class="w-4 h-4 text-accent"></i>
             <span class="text-xs font-semibold text-white">Agent Execution DAG</span>
           </div>
           <span id="dag-node-count" class="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-2 text-gray-400 border border-hairline">1 Node</span>
@@ -1470,8 +1460,8 @@ HTML_INTERFACE = """<!DOCTYPE html>
             <p id="dossier-sub" class="text-[11px] font-mono text-gray-400 truncate"></p>
           </div>
         </div>
-        <button onclick="closeEmployeeDossier()" class="text-gray-400 hover:text-white p-1 rounded hover:bg-surface-2 transition-colors shrink-0">
-          <i data-lucide="x" class="w-4 h-4"></i>
+        <button onclick="closeEmployeeDossier()" class="text-gray-400 hover:text-white px-2 py-0.5 rounded hover:bg-surface-2 transition-colors shrink-0 font-mono text-xs">
+          [X]
         </button>
       </div>
 
@@ -2074,32 +2064,32 @@ HTML_INTERFACE = """<!DOCTYPE html>
     };
 
     const ROLE_CHORUS_EMOTES = {
-      'eng_1': 'Rendering! 🎨',
-      'eng_2': 'Compiling! ⚙️',
-      'eng_3': 'Refactoring! ✂️',
-      'eng_4': 'Deploying! 🚢',
-      'eng_5': 'Integrating! 🧩',
-      'eng_6': 'Optimizing! ⚡',
-      'eng_7': 'Governing! 🏛️',
-      'eng_8': 'Releasing! 📦',
-      'lab_1': 'Auditing! 🔍',
-      'lab_2': 'Mining! 🧠',
-      'lab_3': 'Monitoring! 📊',
-      'lab_4': 'Pipelining! 🚰',
-      'lib_1': 'Synthesized! 💡',
-      'lib_2': 'Vaulted! 📚',
-      'lib_3': 'Curating! 🕸️',
-      'lib_4': 'Syncing! 🔄',
-      'sec_1': 'Defending! 🛡️',
-      'sec_2': 'Penetrating! 🎯',
-      'sec_5': 'Commanding! 🚨',
-      'sec_6': 'Testing! 🧪',
-      'sec_7': 'Validating! ✅',
-      'sec_8': 'Supervising! 👁️',
-      'exec_3': 'Blueprinting! 📐',
-      'cafe_1': 'Energized! ☕',
-      'cafe_2': 'Ready! 💻',
-      'cafe_3': 'Standing! 🛡️'
+      'eng_1': 'Rendering!',
+      'eng_2': 'Compiling!',
+      'eng_3': 'Refactoring!',
+      'eng_4': 'Deploying!',
+      'eng_5': 'Integrating!',
+      'eng_6': 'Optimizing!',
+      'eng_7': 'Governing!',
+      'eng_8': 'Releasing!',
+      'lab_1': 'Auditing!',
+      'lab_2': 'Mining!',
+      'lab_3': 'Monitoring!',
+      'lab_4': 'Pipelining!',
+      'lib_1': 'Synthesized!',
+      'lib_2': 'Vaulted!',
+      'lib_3': 'Curating!',
+      'lib_4': 'Syncing!',
+      'sec_1': 'Defending!',
+      'sec_2': 'Penetrating!',
+      'sec_5': 'Commanding!',
+      'sec_6': 'Testing!',
+      'sec_7': 'Validating!',
+      'sec_8': 'Supervising!',
+      'exec_3': 'Blueprinting!',
+      'cafe_1': 'Energized!',
+      'cafe_2': 'Ready!',
+      'cafe_3': 'Standing!'
     };
 
     function classifyPromptTheme(rawText) {
@@ -2319,10 +2309,10 @@ HTML_INTERFACE = """<!DOCTYPE html>
         {
           isChorus: true,
           chorusItems: [
-            { speakerId: s0.id, text: ROLE_CHORUS_EMOTES[s0.id] || 'Building! 🚀', dept: s0.dept },
-            { speakerId: s1.id, text: ROLE_CHORUS_EMOTES[s1.id] || 'Analyzing! 🔍', dept: s1.dept },
-            { speakerId: s2.id, text: ROLE_CHORUS_EMOTES[s2.id] || 'Defending! 🛡️', dept: s2.dept },
-            { speakerId: s3.id, text: ROLE_CHORUS_EMOTES[s3.id] || 'Logged! 📚', dept: s3.dept }
+            { speakerId: s0.id, text: ROLE_CHORUS_EMOTES[s0.id] || 'Building!', dept: s0.dept },
+            { speakerId: s1.id, text: ROLE_CHORUS_EMOTES[s1.id] || 'Analyzing!', dept: s1.dept },
+            { speakerId: s2.id, text: ROLE_CHORUS_EMOTES[s2.id] || 'Defending!', dept: s2.dept },
+            { speakerId: s3.id, text: ROLE_CHORUS_EMOTES[s3.id] || 'Logged!', dept: s3.dept }
           ],
           startFrame: 610,
           duration: 95
@@ -2545,13 +2535,11 @@ HTML_INTERFACE = """<!DOCTYPE html>
 
       const btn = document.getElementById('btn-call-meeting');
       if (btn) {
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 text-amber-400 animate-spin"></i><span class="font-semibold text-amber-200">Meeting in Session...</span>`;
-        if (window.lucide) lucide.createIcons();
+        btn.innerHTML = `<span class="font-semibold text-amber-200">Meeting in Session...</span>`;
         setTimeout(() => {
           const b = document.getElementById('btn-call-meeting');
           if (b) {
-            b.innerHTML = `<i data-lucide="users" class="w-3 h-3 text-amber-400"></i><span class="font-semibold">Call Meeting</span>`;
-            if (window.lucide) lucide.createIcons();
+            b.innerHTML = `<span class="font-semibold">Call Meeting</span>`;
           }
         }, (MEETING_DURATION + 360) * 16);
       }
@@ -2588,10 +2576,9 @@ HTML_INTERFACE = """<!DOCTYPE html>
     function toggleConsoleDock() {
       consoleDockCollapsed = !consoleDockCollapsed;
       const body = document.getElementById('commander-console-body');
-      const icon = document.getElementById('icon-toggle-console');
+      const label = document.getElementById('label-toggle-console');
       if (body) body.style.display = consoleDockCollapsed ? 'none' : 'block';
-      if (icon) icon.setAttribute('data-lucide', consoleDockCollapsed ? 'chevron-up' : 'chevron-down');
-      if (window.lucide) lucide.createIcons();
+      if (label) label.textContent = consoleDockCollapsed ? '[Show]' : '[Hide]';
     }
 
     function updateConsoleModeBadge() {
@@ -2601,12 +2588,12 @@ HTML_INTERFACE = """<!DOCTYPE html>
       if (!badge || !hint) return;
       if (chk && chk.checked) {
         badge.className = 'px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-amber-950/60 border border-amber-800/60 text-amber-400 transition-all';
-        badge.innerHTML = '⚡ Live Antigravity Prompt (Uses Token)';
+        badge.innerHTML = '[Live Token] Antigravity IDE Prompt';
         hint.innerHTML = 'Forwarded to IDE Language Server via CDP';
         hint.className = 'text-amber-400/80 text-[9.5px]';
       } else {
         badge.className = 'px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-950/60 border border-emerald-800/60 text-emerald-400 transition-all';
-        badge.innerHTML = '🟢 0-Token Directive (Visual Office)';
+        badge.innerHTML = '[0-Token] Visual Office Directive';
         hint.innerHTML = 'Gratis kuota • Eksekusi lokal instan';
         hint.className = 'text-gray-500 text-[9.5px]';
       }
@@ -2665,11 +2652,11 @@ HTML_INTERFACE = """<!DOCTYPE html>
       const isLiveTokenMode = !!(document.getElementById('chk-live-token-mode')?.checked);
 
       // 1. Log Commander's command
-      appendCommanderChat('👑 Commander', rawText, 'text-white', 'text-amber-400');
+      appendCommanderChat('Commander', rawText, 'text-white', 'text-amber-400');
 
       // 2. If Live Token Mode is active -> send to CDP API endpoint
       if (isLiveTokenMode) {
-        appendCommanderChat('⚡ ANTIGRAVITY IDE', 'Menginjeksi prompt ke Antigravity Language Server via CDP...', 'text-amber-300', 'text-amber-400');
+        appendCommanderChat('Antigravity IDE', 'Menginjeksi prompt ke Antigravity Language Server via CDP...', 'text-amber-300', 'text-amber-400');
         fetch('/api/office/send_prompt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2731,7 +2718,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
           appendCommanderChat('Root Orchestrator', 'Perintah diterima, Commander! Semua agen standby dipersilakan santai sejenak di Breakroom & Lounge.', 'text-cyan-300', 'text-cyan-400');
         }, 200);
         setTimeout(() => {
-          appendCommanderChat('Espresso Barista', 'Mesin espresso siap menyala! Silakan mampir ke cafe. ☕', 'text-orange-300', 'text-orange-400');
+          appendCommanderChat('Espresso Barista', 'Mesin espresso siap menyala! Silakan mampir ke cafe.', 'text-orange-300', 'text-orange-400');
         }, 600);
         highlightZone('cafe');
         return;
@@ -2745,7 +2732,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
           appendCommanderChat('Root Orchestrator', `Menginstruksikan tim QA & SecOps (${delegates.map(d => d.title).join(', ')}) untuk threat surface enumeration!`, 'text-cyan-300', 'text-cyan-400');
         }, 200);
         setTimeout(() => {
-          appendCommanderChat(delegates[0].title, 'Zero-Trust scanning aktif. Port monitoring dan credential gate dalam kondisi siaga 🛡️', 'text-amber-300', 'text-amber-400');
+          appendCommanderChat(delegates[0].title, 'Zero-Trust scanning aktif. Port monitoring dan credential gate dalam kondisi siaga.', 'text-amber-300', 'text-amber-400');
         }, 600);
         highlightZone('secops');
         callTeamMeeting(smartDelegateIds, 'Security Audit & Threat Mapping', rawText);
@@ -2760,7 +2747,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
           appendCommanderChat('Root Orchestrator', `Menginstruksikan Engineering Hub (${delegates.map(d => d.title).join(', ')}) untuk memprioritaskan pipeline ini!`, 'text-cyan-300', 'text-cyan-400');
         }, 200);
         setTimeout(() => {
-          appendCommanderChat(delegates[0].title, 'Understood Commander! Menyiapkan contract testing dan AST verification 🚀', 'text-purple-300', 'text-purple-400');
+          appendCommanderChat(delegates[0].title, 'Understood Commander! Menyiapkan contract testing dan AST verification.', 'text-purple-300', 'text-purple-400');
         }, 600);
         highlightZone('engineering');
         callTeamMeeting(smartDelegateIds, 'Engineering Pipeline & DoD', rawText);
@@ -3768,8 +3755,9 @@ HTML_INTERFACE = """<!DOCTYPE html>
         if (staff.department === 'intelligence') avatarBg = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40';
         else if (staff.department === 'engineering') avatarBg = 'bg-purple-500/20 text-purple-400 border border-purple-500/40';
         else if (staff.department === 'secops') avatarBg = 'bg-amber-500/20 text-amber-400 border border-amber-500/40';
-        avatarEl.className = `w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${avatarBg}`;
-        avatarEl.innerHTML = `<i data-lucide="${staff.is_parent ? 'cpu' : 'bot'}" class="w-4 h-4"></i>`;
+        avatarEl.className = `w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 font-mono ${avatarBg}`;
+        const initials = (staff.role || 'AI').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        avatarEl.textContent = initials;
       }
 
       if (bodyEl) {
@@ -3791,7 +3779,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
               <div class="text-[10px] font-mono uppercase tracking-wider text-gray-500">Active Desk Tool / Execution</div>
               <div class="bg-surface-2 border border-hairline rounded p-2.5 font-mono text-[11px] space-y-1">
                 <div class="text-accent font-semibold flex items-center gap-1.5">
-                  <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+                  <span class="text-gray-500">[TOOL]</span>
                   <span>${escapeHtml(staff.active_tool.name)}</span>
                 </div>
                 ${staff.active_tool.action ? `<div class="text-gray-300">${escapeHtml(staff.active_tool.action)}</div>` : ''}
@@ -3980,8 +3968,8 @@ HTML_INTERFACE = """<!DOCTYPE html>
           let headerHtml = `
             <div class="flex items-center justify-between pb-2 border-b border-hairline/70">
               <div class="flex items-center gap-2">
-                <div class="w-7 h-7 rounded-lg ${dept.bg_glow || 'bg-surface-2'} flex items-center justify-center ${dept.text || 'text-accent'}">
-                  <i data-lucide="${dept.icon || 'building'}" class="w-3.5 h-3.5"></i>
+                <div class="w-7 h-7 rounded-lg ${dept.bg_glow || 'bg-surface-2'} flex items-center justify-center ${dept.text || 'text-accent'} font-mono text-[10px] font-bold">
+                  <span>${escapeHtml(dept.name.slice(0, 3))}</span>
                 </div>
                 <div>
                   <h4 class="text-xs font-semibold text-white leading-none">${escapeHtml(dept.name)}</h4>
@@ -4031,8 +4019,8 @@ HTML_INTERFACE = """<!DOCTYPE html>
                 <div onclick="openEmployeeDossier(${staffIdx})" class="spotlight-card border border-hairline rounded-lg bg-surface-2/40 p-2.5 space-y-2 hover:border-gray-600 transition-all cursor-pointer">
                   <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2 min-w-0">
-                      <div class="w-6 h-6 rounded ${dept.bg_glow || 'bg-surface-3'} flex items-center justify-center ${dept.text || 'text-white'} text-[11px] font-bold shrink-0">
-                        <i data-lucide="${staff.is_parent ? 'cpu' : 'bot'}" class="w-3.5 h-3.5"></i>
+                      <div class="w-6 h-6 rounded ${dept.bg_glow || 'bg-surface-3'} flex items-center justify-center ${dept.text || 'text-white'} text-[10px] font-mono font-bold shrink-0">
+                        <span>${escapeHtml((staff.role || 'AI').slice(0, 2).toUpperCase())}</span>
                       </div>
                       <div class="min-w-0">
                         <div class="text-xs font-semibold text-white truncate">${escapeHtml(staff.role)}</div>
@@ -4046,15 +4034,14 @@ HTML_INTERFACE = """<!DOCTYPE html>
 
                   <div class="flex items-center justify-between text-[10px] font-mono text-gray-500 pt-1 border-t border-hairline/40">
                     <span>Steps: <b class="text-gray-300">${staff.steps_count || 1}</b></span>
-                    <span class="text-accent hover:underline flex items-center gap-0.5">Dossier <i data-lucide="chevron-right" class="w-3 h-3"></i></span>
+                    <span class="text-accent hover:underline flex items-center gap-0.5">Dossier &rarr;</span>
                   </div>
                 </div>
               `;
             });
           } else {
             desksHtml += `
-              <div class="border border-dashed border-hairline/70 rounded-lg p-4 text-center text-gray-500 text-[11px] flex flex-col items-center justify-center gap-1.5 bg-surface-2/20 py-5">
-                <i data-lucide="${dept.icon || 'building'}" class="w-4 h-4 text-gray-600"></i>
+              <div class="border border-dashed border-hairline/70 rounded-lg p-4 text-center text-gray-500 text-[11px] flex flex-col items-center justify-center gap-1 bg-surface-2/20 py-5">
                 <span class="text-gray-400 font-medium">Department on Standby</span>
                 <span class="text-[10px] text-gray-600">Specialists mobilize here when spawned</span>
               </div>
@@ -4081,8 +4068,8 @@ HTML_INTERFACE = """<!DOCTYPE html>
         parentNode.innerHTML = `
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <div class="w-6 h-6 rounded bg-accent/20 border border-accent/40 flex items-center justify-center text-accent">
-                <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+              <div class="w-6 h-6 rounded bg-accent/20 border border-accent/40 flex items-center justify-center text-accent font-mono text-[9px] font-bold">
+                <span>ROOT</span>
               </div>
               <div>
                 <div class="text-xs font-semibold text-white">Parent Orchestrator Agent</div>
@@ -4104,8 +4091,8 @@ HTML_INTERFACE = """<!DOCTYPE html>
               <div class="spotlight-card border border-hairline rounded-md bg-surface p-3 space-y-2 hover:border-gray-700 transition-colors">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
-                    <div class="w-6 h-6 rounded bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400">
-                      <i data-lucide="bot" class="w-3.5 h-3.5"></i>
+                    <div class="w-6 h-6 rounded bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 font-mono text-[9px] font-bold">
+                      <span>SUB</span>
                     </div>
                     <div>
                       <div class="text-xs font-semibold text-white">${escapeHtml(sa.role || 'Subagent')}</div>
@@ -4232,7 +4219,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
         });
         const data = await res.json();
         if (data.success) {
-          if (resLabel) resLabel.innerHTML = `<span class="text-emerald-400 font-semibold">⚡ ${data.latency_ms}ms (Responsive)</span>`;
+          if (resLabel) resLabel.innerHTML = `<span class="text-emerald-400 font-semibold">${data.latency_ms}ms (Responsive)</span>`;
         } else {
           if (resLabel) resLabel.innerHTML = `<span class="text-red-400 font-semibold truncate max-w-xs" title="${data.error || 'Timeout'}">Probe failed</span>`;
         }
