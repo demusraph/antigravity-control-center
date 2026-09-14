@@ -2306,16 +2306,21 @@ HTML_INTERFACE = """<!DOCTYPE html>
       if (c1) pixelOfficeCtx.drawImage(c1, 38 * 16, 21 * 16);
       if (c2) pixelOfficeCtx.drawImage(c2, 4 * 16, 21 * 16);
 
-      // Central Corridor Crimson Runner Rug
-      const rx1 = 13 * 16, ry1 = 15 * 16 + 2, rw = 22 * 16, rh = 12;
+      // Central Corridor Crimson Runner Rug (Full Architectural Width, Col 2 to Col 46)
+      const rx1 = 2 * 16, ry1 = 15 * 16 + 1, rw = 44 * 16, rh = 14;
       pixelOfficeCtx.fillStyle = '#6a2024';
       pixelOfficeCtx.fillRect(rx1, ry1, rw, rh);
       pixelOfficeCtx.strokeStyle = '#b8444c';
       pixelOfficeCtx.lineWidth = 1;
       pixelOfficeCtx.strokeRect(rx1, ry1, rw, rh);
-      pixelOfficeCtx.fillStyle = '#e2757c';
+      // Double Gold Satin Running Stripes
+      pixelOfficeCtx.fillStyle = '#d4a359';
       pixelOfficeCtx.fillRect(rx1, ry1 + 2, rw, 1);
       pixelOfficeCtx.fillRect(rx1, ry1 + rh - 3, rw, 1);
+      // Gold Fringe Tassels at Both Ends
+      pixelOfficeCtx.fillStyle = '#f59e0b';
+      pixelOfficeCtx.fillRect(rx1, ry1 + 1, 3, rh - 2);
+      pixelOfficeCtx.fillRect(rx1 + rw - 3, ry1 + 1, 3, rh - 2);
 
       // 4. Assemble Z-Sorted Drawables
       const drawables = [];
@@ -2342,16 +2347,22 @@ HTML_INTERFACE = """<!DOCTYPE html>
         });
       }
 
-      // ── CORRIDOR AMENITIES & DECOR ──
-      addObj('assets/furniture/WOODEN_BENCH/WOODEN_BENCH.png', 18, 15, 0, 0, false, true);
-      addObj('assets/furniture/WOODEN_BENCH/WOODEN_BENCH.png', 26, 15, 0, 0, false, true);
-      addObj('assets/furniture/PLANT/PLANT.png', 15, 14, -8, -4, false, true);
-      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 32, 14, 4, -8, false, true);
-      addObj('assets/furniture/BIN/BIN.png', 29, 15, 0, 0, false, true);
-      addObj('assets/furniture/SMALL_PAINTING/SMALL_PAINTING.png', 20, 14, 0, 0, false, true);
-      addObj('assets/furniture/SMALL_PAINTING/SMALL_PAINTING.png', 28, 14, 0, 0, false, true);
+      // ── CORRIDOR AMENITIES & DECOR (Clean, Symmetrical & Consistent) ──
+      // Waiting benches placed neatly between portals
+      addObj('assets/furniture/WOODEN_BENCH/WOODEN_BENCH.png', 17, 15, 0, 0, false, true);
+      addObj('assets/furniture/WOODEN_BENCH/WOODEN_BENCH.png', 31, 15, 0, 0, false, true);
+      // Symmetrical indoor architectural potted plants (16x32 PLANT) flanking doorways
+      addObj('assets/furniture/PLANT/PLANT.png', 6, 14, 0, 0, false, true);
+      addObj('assets/furniture/PLANT/PLANT.png', 11, 14, 0, 0, false, true);
+      addObj('assets/furniture/PLANT/PLANT.png', 21, 14, 0, 0, false, true);
+      addObj('assets/furniture/PLANT/PLANT.png', 26, 14, 0, 0, false, true);
+      addObj('assets/furniture/PLANT/PLANT.png', 36, 14, 0, 0, false, true);
+      addObj('assets/furniture/PLANT/PLANT.png', 41, 14, 0, 0, false, true);
+      // Clean framed paintings centered on dividing walls
+      addObj('assets/furniture/SMALL_PAINTING/SMALL_PAINTING.png', 14, 14, 0, 0, false, true);
+      addObj('assets/furniture/SMALL_PAINTING/SMALL_PAINTING.png', 29, 14, 0, 0, false, true);
 
-      // ── FIXED STATIC FURNITURE & DECOR ──
+      // ── FIXED STATIC FURNITURE & DECOR (Uniform Corner Palms, Zero Clutter) ──
       // Room 1: War Room Decor
       addObj('assets/furniture/BOOKSHELF/BOOKSHELF.png', 3, 1, 0, 0, false, isRoomActive('executive'));
       addObj('assets/furniture/CLOCK/CLOCK.png', 8, 1, 0, 0, false, isRoomActive('executive'));
@@ -2366,54 +2377,47 @@ HTML_INTERFACE = """<!DOCTYPE html>
       addObj('assets/furniture/PC/PC_SIDE.png', 7, 9, 0, 0, false, isRoomActive('executive'));
       addObj('assets/furniture/PC/PC_SIDE.png', 9, 7, 0, 0, true, isRoomActive('executive'));
       addObj('assets/furniture/PC/PC_SIDE.png', 9, 9, 0, 0, true, isRoomActive('executive'));
-      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 13, 3, 0, 0, false, isRoomActive('executive'));
-      addObj('assets/furniture/POT/POT.png', 2, 12, 0, 0, false, isRoomActive('executive'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 13, 2, 0, 0, false, isRoomActive('executive'));
       addObj('assets/furniture/BIN/BIN.png', 13, 12, 0, 0, false, isRoomActive('executive'));
 
       // Room 2: Recon Decor
       addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 18, 1, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/LARGE_PAINTING/LARGE_PAINTING.png', 24, 1, 0, 0, false, isRoomActive('intelligence'));
-      addObj('assets/furniture/PLANT/PLANT.png', 28, 2, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 28, 2, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 28, 4, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 28, 7, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/BIN/BIN.png', 28, 12, 0, 0, false, isRoomActive('intelligence'));
-      addObj('assets/furniture/POT/POT.png', 18, 12, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/CLOCK/CLOCK.png', 21, 1, 0, 0, false, isRoomActive('intelligence'));
 
       // Room 3: Engineering Decor
       addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 33, 1, 0, 0, false, isRoomActive('engineering'));
       addObj('assets/furniture/CLOCK/CLOCK.png', 38, 1, 0, 0, false, isRoomActive('engineering'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 41, 1, 0, 0, false, isRoomActive('engineering'));
-      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 44, 11, 0, 0, false, isRoomActive('engineering'));
-      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 32, 11, 0, 0, false, isRoomActive('engineering'));
       addObj('assets/furniture/BIN/BIN.png', 44, 1, 0, 0, false, isRoomActive('engineering'));
-      addObj('assets/furniture/PLANT/PLANT.png', 32, 2, 0, 0, false, isRoomActive('engineering'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 32, 11, 0, 0, false, isRoomActive('engineering'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 44, 11, 0, 0, false, isRoomActive('engineering'));
 
       // Room 4: Knowledge Vault Decor
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 3, 17, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 6, 17, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 9, 17, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 12, 17, 0, 0, false, isRoomActive('intelligence'));
-      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 13, 19, 0, 0, false, isRoomActive('intelligence'));
-      addObj('assets/furniture/CACTUS/CACTUS.png', 2, 27, 0, 0, false, isRoomActive('intelligence'));
-      addObj('assets/furniture/SMALL_TABLE/SMALL_TABLE_FRONT.png', 2, 21, 0, 0, false, isRoomActive('intelligence'));
       addObj('assets/furniture/CLOCK/CLOCK.png', 8, 17, 0, 0, false, isRoomActive('intelligence'));
-      addObj('assets/furniture/BOOKSHELF/BOOKSHELF.png', 12, 27, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 13, 18, 0, 0, false, isRoomActive('intelligence'));
+      addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 11, 29, 0, 0, false, isRoomActive('intelligence'));
 
       // Room 5: QA Decor
       addObj('assets/furniture/WHITEBOARD/WHITEBOARD.png', 18, 17, 0, 0, false, isRoomActive('secops'));
       addObj('assets/furniture/CLOCK/CLOCK.png', 24, 17, 0, 0, false, isRoomActive('secops'));
-      addObj('assets/furniture/PLANT/PLANT.png', 28, 18, 0, 0, false, isRoomActive('secops'));
+      addObj('assets/furniture/LARGE_PLANT/LARGE_PLANT.png', 28, 18, 0, 0, false, isRoomActive('secops'));
       addObj('assets/furniture/BIN/BIN.png', 28, 28, 0, 0, false, isRoomActive('secops'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 18, 27, 0, 0, false, isRoomActive('secops'));
       addObj('assets/furniture/DOUBLE_BOOKSHELF/DOUBLE_BOOKSHELF.png', 28, 23, 0, 0, false, isRoomActive('secops'));
-      addObj('assets/furniture/POT/POT.png', 18, 21, 0, 0, false, isRoomActive('secops'));
 
       // Room 6: Breakroom Decor & Gitcat Pet
       addObj('assets/furniture/SMALL_TABLE/SMALL_TABLE_FRONT.png', 33, 19, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/COFFEE/COFFEE.png', 33, 18, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/SMALL_TABLE/SMALL_TABLE_FRONT.png', 35, 19, 0, 0, false, isRoomActive('cafe'));
-      addObj('assets/furniture/POT/POT.png', 36, 18, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/COFFEE_TABLE/COFFEE_TABLE.png', 40, 23, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/SOFA/SOFA_FRONT.png', 40, 21, 0, 0, false, isRoomActive('cafe'));
       addObj('assets/furniture/SOFA/SOFA_BACK.png', 40, 25, 0, 0, false, isRoomActive('cafe'));
@@ -2450,13 +2454,14 @@ HTML_INTERFACE = """<!DOCTYPE html>
         const atDesk = isAgentAtDesk(slot.id);
         const anim = agentAnimState[slot.id];
 
-        // ── FURNITURE (always drawn regardless of agent position) ──
+        // ── FURNITURE (Desk and PC have standard natural Z-depth) ──
         if (slot.dir === 'up') {
           const deskC = slot.col - 1;
           const deskR = slot.row - 1;
-          addObj('assets/furniture/DESK/DESK_FRONT.png', deskC, deskR, 0, 0, false, isSlotActive, 28);
+          // Desk footprint at row deskR, depth is natural (no artificial offset blocking the seated agent)
+          addObj('assets/furniture/DESK/DESK_FRONT.png', deskC, deskR, 0, 0, false, isSlotActive, 0);
           const pcFrame = 1 + (Math.floor((pixelOfficeFrame + sIdx * 7) / 14) % 3);
-          addObj(`assets/furniture/PC/PC_FRONT_ON_${pcFrame}.png`, deskC + 1, deskR - 1, 0, 0, false, isSlotActive, 28);
+          addObj(`assets/furniture/PC/PC_FRONT_ON_${pcFrame}.png`, deskC + 1, deskR - 1, 0, 0, false, isSlotActive, 0);
           addObj('assets/furniture/CUSHIONED_BENCH/CUSHIONED_BENCH.png', deskC + 1, deskR + 1, 0, 0, false, isSlotActive, 0);
         }
 
@@ -2467,12 +2472,14 @@ HTML_INTERFACE = """<!DOCTYPE html>
             const deskC = slot.col - 1;
             const deskR = slot.row - 1;
             const tx = (deskC + 1) * 16;
-            const ty = deskR * 16 + 10;
+            // Placed naturally on the cushioned bench facing north at the desk keyboard
+            const ty = deskR * 16 + 18;
             const isTyping = (anim && anim.state === 'working_at_desk') || isWorking;
             const bob = isTyping ? (Math.floor((pixelOfficeFrame + sIdx) / 8) % 2) : 0;
 
             drawables.push({
-              zy: ty + 18,
+              // Seated agent Z-depth is higher than the desk (deskR*16 + 32) so upper body, head & typing arms are 100% VISIBLE!
+              zy: deskR * 16 + 48,
               draw: () => {
                 pixelOfficeCtx.save();
                 pixelOfficeCtx.globalAlpha = isSlotActive ? 1.0 : 0.35;
@@ -2484,7 +2491,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
 
             overheadBadges.push({
               bx: tx + 8 + (slot.badge_ox || 0),
-              by: ty + (slot.badge_oy || -24),
+              by: deskR * 16 - 12 + (slot.badge_oy ? (slot.badge_oy + 26) : 0),
               staff: staff, slot: slot, isHovered: isHovered
             });
           } else {
