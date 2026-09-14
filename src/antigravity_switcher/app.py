@@ -1764,9 +1764,9 @@ HTML_INTERFACE = """<!DOCTYPE html>
     const AMBIENT_MEETING_INTERVAL_MIN = 1200;  // ~20s at 60fps
     const AMBIENT_MEETING_INTERVAL_MAX = 2000;  // ~33s at 60fps
     let nextAmbientMeetingFrame = AMBIENT_MEETING_INTERVAL_MIN;
-    const WALK_SPEED = 2.4;  // brisk natural walking speed (2.4 px/frame)
-    const MEETING_DURATION = 360;   // frames in meeting (~6s at 60fps)
+    const MEETING_DURATION = 720;   // frames in meeting (~12s at 60fps for full animated conversation)
     const WORKING_DURATION = 600;   // frames working after meeting (~10s at 60fps)
+    const WALK_SPEED = 2.4;         // pixels per frame (smooth walking pace)
 
     function getRoomDoorCol(col, row) {
       if (col < 16) return 8;
@@ -1929,8 +1929,264 @@ HTML_INTERFACE = """<!DOCTYPE html>
       }
     }
 
+    // ── INTERACTIVE TASK DELEGATION & OVERHEAD BUBBLE CHAT ENGINE ──
+    let activeMeetingSession = null;
+    let currentOfficeMission = '';
+    let lastKnownSubagentCount = -1;
+    let lastKnownMission = '';
+
+    function wrapDialogueText(text, maxChars = 28) {
+      if (!text || text.length <= maxChars) return [text || ''];
+      const words = text.split(' ');
+      const lines = [];
+      let cur = '';
+      for (const w of words) {
+        if ((cur + ' ' + w).trim().length <= maxChars) {
+          cur = (cur + ' ' + w).trim();
+        } else {
+          if (cur) lines.push(cur);
+          cur = w;
+        }
+      }
+      if (cur) lines.push(cur);
+      return lines;
+    }
+
+    function buildMeetingDialogues(mission, participants) {
+      const engId = participants.find(id => id.startsWith('eng')) || 'eng_2';
+      const intelId = participants.find(id => id.startsWith('lab')) || 'lab_1';
+      const secId = participants.find(id => id.startsWith('sec')) || 'sec_7';
+      const libId = participants.find(id => id.startsWith('lib')) || 'lib_1';
+
+      let cleanMission = mission || 'Sprint Architecture & Task Delegation';
+      if (cleanMission.length > 36) cleanMission = cleanMission.slice(0, 33) + '...';
+
+      return [
+        {
+          speakerId: 'exec_1',
+          speakerRole: 'Lead Orchestrator (Root)',
+          dept: 'executive',
+          text: `Directives: ${cleanMission}`,
+          startFrame: 10,
+          duration: 100
+        },
+        {
+          speakerId: 'exec_2',
+          speakerRole: 'Strategic Advisor',
+          dept: 'executive',
+          text: 'Verified: 70% reliability + 30% speed.',
+          startFrame: 115,
+          duration: 95
+        },
+        {
+          speakerId: engId,
+          speakerRole: 'Backend Core Dev',
+          dept: 'engineering',
+          text: 'Understood! Scaffolding AST & typed contracts.',
+          startFrame: 215,
+          duration: 95
+        },
+        {
+          speakerId: secId,
+          speakerRole: 'Security Sentinel',
+          dept: 'secops',
+          text: 'Threat surface mapped. Zero-trust gate ready.',
+          startFrame: 315,
+          duration: 95
+        },
+        {
+          speakerId: intelId,
+          speakerRole: 'Model Scientist',
+          dept: 'intelligence',
+          text: 'Telemetry verified. DemusBrain vault synced.',
+          startFrame: 415,
+          duration: 95
+        },
+        {
+          speakerId: 'exec_1',
+          speakerRole: 'Lead Orchestrator (Root)',
+          dept: 'executive',
+          text: 'Consensus reached. Disperse and execute with DoD!',
+          startFrame: 515,
+          duration: 90
+        },
+        {
+          isChorus: true,
+          chorusItems: [
+            { speakerId: engId, text: 'Building! 🚀', dept: 'engineering' },
+            { speakerId: secId, text: 'Defending! 🛡️', dept: 'secops' },
+            { speakerId: intelId, text: 'Analyzing! 🔍', dept: 'intelligence' },
+            { speakerId: libId, text: 'Logged! 📚', dept: 'intelligence' }
+          ],
+          startFrame: 610,
+          duration: 90
+        }
+      ];
+    }
+
+    function getSpeakerHeadPos(speakerId) {
+      const anim = agentAnimState[speakerId];
+      if (anim && (anim.state === 'in_meeting' || anim.state === 'walk_to_meeting')) {
+        return { x: Math.round(anim.px) + 8, y: Math.round(anim.py) };
+      }
+      const slot = pixelOfficeStations.find(s => s.id === speakerId);
+      if (slot) {
+        if (slot.dir === 'up') {
+          return { x: slot.col * 16 + 8, y: (slot.row - 1) * 16 + 18 };
+        } else {
+          return { x: slot.col * 16 + 8, y: slot.row * 16 - 4 };
+        }
+      }
+      return { x: 8 * 16 + 8, y: 7 * 16 };
+    }
+
+    function getActiveSpeakingAgentId() {
+      if (!activeMeetingSession || !activeMeetingSession.active) return null;
+      const currentFrame = activeMeetingSession.frame;
+      for (let i = 0; i < activeMeetingSession.dialogues.length; i++) {
+        const d = activeMeetingSession.dialogues[i];
+        if (currentFrame >= d.startFrame && currentFrame < d.startFrame + d.duration) {
+          return d.isChorus ? '__chorus__' : d.speakerId;
+        }
+      }
+      return null;
+    }
+
+    function drawSpeechBubble(ctx, hx, hy, roleName, text, dept, animProgress = 1.0) {
+      ctx.save();
+
+      let strokeColor = '#38bdf8'; // Executive cyan
+      let tagColor = '#38bdf8';
+      if (dept === 'engineering') { strokeColor = '#c084fc'; tagColor = '#c084fc'; }
+      else if (dept === 'intelligence') { strokeColor = '#34d399'; tagColor = '#34d399'; }
+      else if (dept === 'secops') { strokeColor = '#fbbf24'; tagColor = '#fbbf24'; }
+
+      const lines = wrapDialogueText(text, 30);
+
+      ctx.font = '700 6.5px "JetBrains Mono", Consolas, monospace';
+      const roleWidth = ctx.measureText(roleName).width;
+      ctx.font = '500 7px "JetBrains Mono", Consolas, monospace';
+      let maxLineWidth = roleWidth;
+      lines.forEach(l => {
+        const w = ctx.measureText(l).width;
+        if (w > maxLineWidth) maxLineWidth = w;
+      });
+
+      const bubbleW = Math.max(88, Math.min(180, Math.round(maxLineWidth + 16)));
+      const bubbleH = lines.length > 1 ? 28 : 20;
+
+      // Position bubble above speaker's head, clamped within canvas
+      const maxW = (ctx.canvas && ctx.canvas.width) ? ctx.canvas.width : (48 * 16);
+      let bx = Math.round(hx - bubbleW / 2);
+      let by = Math.round(hy - bubbleH - 7);
+
+      if (bx < 8) bx = 8;
+      if (bx + bubbleW > maxW - 8) bx = maxW - 8 - bubbleW;
+      if (by < 4) by = 4;
+
+      const tailX = Math.max(bx + 8, Math.min(bx + bubbleW - 8, Math.round(hx)));
+      const tailTipY = hy - 1;
+      const tailBaseY = by + bubbleH;
+
+      // Snappy pop-in spring (clamped to at least 0.1 to prevent degenerate matrix)
+      const scale = Math.max(0.1, Math.min(1.0, animProgress * 4.0));
+      if (scale < 1.0) {
+        ctx.translate(hx, hy);
+        ctx.scale(scale, scale);
+        ctx.translate(-hx, -hy);
+      }
+
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
+      ctx.fillRect(bx + 1.5, by + 1.5, bubbleW, bubbleH);
+
+      // Main background
+      ctx.fillStyle = 'rgba(10, 13, 22, 0.97)';
+      ctx.fillRect(bx, by, bubbleW, bubbleH);
+
+      // Colored border
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(bx, by, bubbleW, bubbleH);
+
+      // Pointer Tail pointing down to speaker head
+      ctx.fillStyle = 'rgba(10, 13, 22, 0.97)';
+      ctx.beginPath();
+      ctx.moveTo(tailX - 3.5, tailBaseY);
+      ctx.lineTo(tailX, tailTipY);
+      ctx.lineTo(tailX + 3.5, tailBaseY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Tail stroke
+      ctx.beginPath();
+      ctx.moveTo(tailX - 3.5, tailBaseY);
+      ctx.lineTo(tailX, tailTipY);
+      ctx.lineTo(tailX + 3.5, tailBaseY);
+      ctx.stroke();
+
+      // Micro decorative corner pixels
+      ctx.fillStyle = strokeColor;
+      ctx.fillRect(bx, by, 2, 2);
+      ctx.fillRect(bx + bubbleW - 2, by, 2, 2);
+
+      // Speaker Name Tag
+      ctx.fillStyle = tagColor;
+      ctx.font = '700 6.5px "JetBrains Mono", Consolas, monospace';
+      ctx.textBaseline = 'top';
+      ctx.fillText(roleName, bx + 5, by + 3);
+
+      // Dialogue Text Lines
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '500 7px "JetBrains Mono", Consolas, monospace';
+      if (lines.length > 1) {
+        ctx.fillText(lines[0], bx + 5, by + 11);
+        ctx.fillText(lines[1], bx + 5, by + 19);
+      } else {
+        ctx.fillText(lines[0], bx + 5, by + 11);
+      }
+
+      ctx.restore();
+    }
+
+    function drawMiniEmoteBubble(ctx, hx, hy, text, deptColor) {
+      ctx.save();
+      ctx.font = '700 7px "JetBrains Mono", Consolas, monospace';
+      const tw = ctx.measureText(text).width;
+      const bw = tw + 8;
+      const bh = 13;
+      const bx = Math.round(hx - bw / 2);
+      const by = Math.round(hy - bh - 5);
+
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillRect(bx + 1, by + 1, bw, bh);
+
+      // Body & Border
+      ctx.fillStyle = 'rgba(10, 13, 22, 0.97)';
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.strokeStyle = deptColor;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(bx, by, bw, bh);
+
+      // Pointer Tail
+      ctx.beginPath();
+      ctx.moveTo(hx - 2, by + bh);
+      ctx.lineTo(hx, hy - 1);
+      ctx.lineTo(hx + 2, by + bh);
+      ctx.fillStyle = 'rgba(10, 13, 22, 0.97)';
+      ctx.fill();
+      ctx.stroke();
+
+      // Emote text
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + 4, by + bh / 2 + 0.5);
+      ctx.restore();
+    }
+
     // Call a cross-department strategy alignment meeting in the War Room
-    function callTeamMeeting(customStaffIds) {
+    function callTeamMeeting(customStaffIds, taskMission) {
       const meetingPositions = MEETING_POSITIONS;
 
       let selectedSlots = [];
@@ -1949,6 +2205,17 @@ HTML_INTERFACE = """<!DOCTYPE html>
       }
 
       if (selectedSlots.length === 0) return;
+
+      const mission = taskMission || currentOfficeMission || 'Sprint Architecture & Feature Delegation';
+      const participantIds = selectedSlots.map(s => s.id);
+
+      activeMeetingSession = {
+        active: true,
+        mission: mission,
+        participants: participantIds,
+        frame: 0,
+        dialogues: buildMeetingDialogues(mission, participantIds)
+      };
 
       selectedSlots.forEach((slot, i) => {
         const meetPos = meetingPositions[i % meetingPositions.length];
@@ -1971,7 +2238,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
         };
       });
 
-      console.log(`[Meeting] Called sync meeting with ${selectedSlots.map(s => s.assignedStaff?.role || s.title).join(', ')}`);
+      console.log(`[Meeting] Called sync meeting for mission: "${mission}" with ${selectedSlots.map(s => s.assignedStaff?.role || s.title).join(', ')}`);
 
       const btn = document.getElementById('btn-call-meeting');
       if (btn) {
@@ -2652,9 +2919,13 @@ HTML_INTERFACE = """<!DOCTYPE html>
 
       // ── TOP-MOST RENDER PASS: OVERHEAD UI BADGES ──
       // Rendered AFTER all world objects so NO furniture, desk, PC, or decor ever occludes them!
+      const speakingId = getActiveSpeakingAgentId();
       overheadBadges.sort((a, b) => (a.isHovered ? 1 : 0) - (b.isHovered ? 1 : 0));
       overheadBadges.forEach(b => {
         try {
+          if (speakingId && (speakingId === b.slot.id || (speakingId === '__chorus__' && activeMeetingSession && activeMeetingSession.participants.includes(b.slot.id)))) {
+            return; // Suppress small badge while speech bubble is active to prevent visual clutter
+          }
           drawFloatingBadge(pixelOfficeCtx, b.bx, b.by, b.staff, b.slot, b.isHovered, pixelOfficeFrame);
         } catch (e) {
           console.error("Overhead badge render error:", e);
@@ -2718,6 +2989,51 @@ HTML_INTERFACE = """<!DOCTYPE html>
         pixelOfficeCtx.restore();
       }
 
+      // ── TOP-MOST OVERHEAD CHAT SPEECH BUBBLES (Dynamic Conversations) ──
+      if (activeMeetingSession && activeMeetingSession.active) {
+        try {
+          const anyInMeeting = activeMeetingSession.participants.some(id => {
+            const a = agentAnimState[id];
+            return a && a.state === 'in_meeting';
+          });
+
+          if (anyInMeeting) {
+            activeMeetingSession.frame++;
+            const currentFrame = activeMeetingSession.frame;
+
+            for (let i = 0; i < activeMeetingSession.dialogues.length; i++) {
+              const d = activeMeetingSession.dialogues[i];
+              if (currentFrame >= d.startFrame && currentFrame < d.startFrame + d.duration) {
+                const progress = (currentFrame - d.startFrame) / d.duration;
+
+                if (currentFrame === d.startFrame) {
+                  console.log(`[Meeting Dialogue] Turn ${i + 1}/${activeMeetingSession.dialogues.length}: ${d.speakerRole || 'Chorus'} -> "${d.text || 'Chorus Reactions'}"`);
+                }
+
+                if (d.isChorus) {
+                  // Simultaneous reaction bubbles above all participants
+                  d.chorusItems.forEach(item => {
+                    const pos = getSpeakerHeadPos(item.speakerId);
+                    let col = '#38bdf8';
+                    if (item.dept === 'engineering') col = '#c084fc';
+                    else if (item.dept === 'intelligence') col = '#34d399';
+                    else if (item.dept === 'secops') col = '#fbbf24';
+                    drawMiniEmoteBubble(pixelOfficeCtx, pos.x, pos.y, item.text, col);
+                  });
+                } else {
+                  // Single active speech bubble pointing down to speaker
+                  const pos = getSpeakerHeadPos(d.speakerId);
+                  drawSpeechBubble(pixelOfficeCtx, pos.x, pos.y, d.speakerRole, d.text, d.dept, progress);
+                }
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("[SpeechBubble Error]", e);
+        }
+      }
+
       pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
     }
 
@@ -2733,6 +3049,17 @@ HTML_INTERFACE = """<!DOCTYPE html>
       const depts = data.departments || {};
       const parentAgent = (depts.executive && depts.executive.staff && depts.executive.staff[0]) ? depts.executive.staff[0] : null;
       const realSubagents = data.subagents || [];
+
+      // Auto-trigger War Room meeting on new subagent task delegation
+      const currentMission = data.mission || (data.active_session && data.active_session.mission) || '';
+      const currentSubs = realSubagents.length;
+      if (lastKnownSubagentCount !== -1 && (currentSubs > lastKnownSubagentCount || (currentMission && currentMission !== lastKnownMission))) {
+        console.log("[Auto-Delegation] New task delegated -> Convening War Room alignment meeting with speech bubbles!");
+        callTeamMeeting(null, currentMission);
+      }
+      lastKnownSubagentCount = currentSubs;
+      lastKnownMission = currentMission;
+      currentOfficeMission = currentMission;
 
       // Clone stations and compute pixel positions
       const stations = JSON.parse(JSON.stringify(OFFICE_STATIONS));
