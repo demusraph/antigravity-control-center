@@ -70,7 +70,7 @@ from PyQt5.QtGui import QIcon, QColor, QPalette
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QSystemTrayIcon, QMenu, QMessageBox, QAction,
-    QWidget, QHBoxLayout, QLabel, QPushButton
+    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QSplashScreen
 )
 
 if getattr(sys, 'frozen', False):
@@ -1522,13 +1522,13 @@ HTML_INTERFACE = """<!DOCTYPE html>
 
     function scheduleLoaderDismissal() {
       const elapsed = performance.now() - appLaunchStartTime;
-      const minDisplayTime = 1300; // 1.3s ensures user sees the slick smooth animation
+      const minDisplayTime = 40; // Immediate transition since native Qt splash screen covers launch phase
       const remaining = Math.max(0, minDisplayTime - elapsed);
       setTimeout(dismissAppLoader, remaining);
     }
 
     window.addEventListener('load', () => scheduleLoaderDismissal());
-    setTimeout(dismissAppLoader, 3500); // Failsafe safety fallback
+    setTimeout(dismissAppLoader, 1200); // Failsafe safety fallback
 
     // --- React Bits: SpotlightCard Mouse Tracking ---
     function initSpotlightCards() {
@@ -5154,6 +5154,120 @@ def apply_dwm_frameless_styling(hwnd):
     except Exception:
         pass
 
+# --- Native Instant Splash Screen (Zero Black Screen) ---
+class AntigravityNativeSplashScreen(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(Qt.SplashScreen | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setFixedSize(380, 220)
+
+        # Center on primary active screen
+        screen = QApplication.primaryScreen()
+        if screen:
+            geo = screen.geometry()
+            self.move((geo.width() - 380) // 2, (geo.height() - 220) // 2)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Container Card with rounded corners, obsidian backdrop, and hairline border
+        self.card = QWidget(self)
+        self.card.setStyleSheet("""
+            QWidget {
+                background-color: #0c0d10;
+                border: 1px solid #232733;
+                border-radius: 14px;
+            }
+        """)
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(24, 26, 24, 22)
+        card_layout.setSpacing(8)
+        card_layout.setAlignment(Qt.AlignCenter)
+
+        # Logo Icon
+        self.icon_label = QLabel(self.card)
+        self.icon_label.setAlignment(Qt.AlignCenter)
+        self.icon_label.setStyleSheet("border: none; background: transparent;")
+        icon_path = ICON_PNG if (ICON_PNG and os.path.exists(ICON_PNG)) else (ICON_ICO if (ICON_ICO and os.path.exists(ICON_ICO)) else None)
+        if icon_path:
+            pix = QtGui.QPixmap(icon_path).scaled(46, 46, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.icon_label.setPixmap(pix)
+        card_layout.addWidget(self.icon_label)
+
+        # Brand Title
+        self.title_label = QLabel("Antigravity Control Center", self.card)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+                font-size: 14px;
+                font-weight: 700;
+                border: none;
+                background: transparent;
+                letter-spacing: -0.2px;
+            }
+        """)
+        card_layout.addWidget(self.title_label)
+
+        # Subtitle / Status
+        self.status_label = QLabel("Loading Antigravity...", self.card)
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet("""
+            QLabel {
+                color: #8e95a0;
+                font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+                font-size: 11.5px;
+                font-weight: 400;
+                border: none;
+                background: transparent;
+            }
+        """)
+        card_layout.addWidget(self.status_label)
+
+        # Animated 3 Wave Dots Label: "●  ○  ○"
+        self.dots_label = QLabel("●  ○  ○", self.card)
+        self.dots_label.setAlignment(Qt.AlignCenter)
+        self.dots_label.setStyleSheet("""
+            QLabel {
+                color: #38bdf8;
+                font-size: 11px;
+                font-family: 'JetBrains Mono', Consolas, monospace;
+                border: none;
+                background: transparent;
+                letter-spacing: 3px;
+            }
+        """)
+        card_layout.addWidget(self.dots_label)
+
+        layout.addWidget(self.card)
+
+        # Dot animation timer
+        self.dot_step = 0
+        self.dot_timer = QTimer(self)
+        self.dot_timer.timeout.connect(self._animate_dots)
+        self.dot_timer.start(160)
+
+        apply_dwm_frameless_styling(int(self.winId()))
+
+    def _animate_dots(self):
+        self.dot_step = (self.dot_step + 1) % 4
+        frames = ["●  ○  ○", "○  ●  ○", "○  ○  ●", "●  ●  ●"]
+        self.dots_label.setText(frames[self.dot_step])
+
+    def close_with_fade(self, parent_win=None):
+        try:
+            self.dot_timer.stop()
+        except Exception:
+            pass
+        self._fade_anim = QPropertyAnimation(self, b"windowOpacity")
+        self._fade_anim.setDuration(160)
+        self._fade_anim.setStartValue(1.0)
+        self._fade_anim.setEndValue(0.0)
+        self._fade_anim.finished.connect(self.close)
+        self._fade_anim.start()
+
 # --- Desktop Window Host ---
 class AntigravityProWindow(QMainWindow):
     sig_toggle_max = QtCore.pyqtSignal()
@@ -5161,8 +5275,10 @@ class AntigravityProWindow(QMainWindow):
     sig_close = QtCore.pyqtSignal()
     sig_quit = QtCore.pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, splash=None):
         super().__init__()
+        self.splash = splash
+        self._already_revealed = False
         self._is_custom_maximized = False
         self._normal_geometry = None
         self._max_anim = None
@@ -5194,11 +5310,50 @@ class AntigravityProWindow(QMainWindow):
             self.setWindowIcon(icon_to_use)
 
         self.browser = QWebEngineView(self)
-        self.browser.page().setBackgroundColor(QtGui.QColor("#161616"))
+        self.browser.page().setBackgroundColor(QtGui.QColor("#0c0d10"))
         self.setCentralWidget(self.browser)
+        self.browser.loadFinished.connect(self._on_web_load_finished)
         self.browser.load(QUrl(f"http://127.0.0.1:{ACTUAL_PORT}"))
-        
+
+        # Safety fallback timer: reveal window after 4.5 seconds if loadFinished never fires
+        self._load_fallback_timer = QTimer(self)
+        self._load_fallback_timer.setSingleShot(True)
+        self._load_fallback_timer.timeout.connect(self._reveal_main_window)
+        self._load_fallback_timer.start(4500)
+
         self.init_tray()
+
+    def _on_web_load_finished(self, ok):
+        if hasattr(self, "_load_fallback_timer") and self._load_fallback_timer.isActive():
+            self._load_fallback_timer.stop()
+        if hasattr(self, "browser") and self.browser.page():
+            self.browser.page().runJavaScript("if (typeof dismissAppLoader === 'function') dismissAppLoader();")
+        self._reveal_main_window()
+
+    def _reveal_main_window(self):
+        if self._already_revealed:
+            return
+        self._already_revealed = True
+
+        self.setWindowOpacity(0.0)
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        apply_dwm_frameless_styling(int(self.winId()))
+        QTimer.singleShot(50, lambda: apply_dwm_frameless_styling(int(self.winId())))
+
+        self._show_anim = QPropertyAnimation(self, b"windowOpacity")
+        self._show_anim.setDuration(160)
+        self._show_anim.setStartValue(0.0)
+        self._show_anim.setEndValue(1.0)
+        self._show_anim.start()
+
+        if self.splash:
+            try:
+                self.splash.close_with_fade(self)
+            except Exception:
+                self.splash.close()
+            self.splash = None
 
     def is_window_maximized(self):
         return self._is_custom_maximized or self.isMaximized()
@@ -5375,14 +5530,8 @@ def main():
         sys.exit(0)
 
     ensure_dirs()
-    
-    server_thread = threading.Thread(target=start_local_server, daemon=True)
-    server_thread.start()
-    for _ in range(40):
-        if LOCAL_SERVER_INSTANCE is not None:
-            break
-        time.sleep(0.05)
-    
+
+    # 1. Initialize Qt Application first so Native Splash Screen can show in 0.01s
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
     app = QApplication(sys.argv)
@@ -5390,16 +5539,26 @@ def main():
     icon_to_use = QIcon(ICON_ICO) if os.path.exists(ICON_ICO) else (QIcon(ICON_PNG) if os.path.exists(ICON_PNG) else None)
     if icon_to_use:
         app.setWindowIcon(icon_to_use)
-    
-    win = AntigravityProWindow()
+
+    # 2. Instantly display Native Splash Screen (ZERO Black Screen!)
+    splash = AntigravityNativeSplashScreen()
+    splash.show()
+    app.processEvents()
+
+    # 3. Start local server in background thread while splash is showing
+    server_thread = threading.Thread(target=start_local_server, daemon=True)
+    server_thread.start()
+    for _ in range(40):
+        if LOCAL_SERVER_INSTANCE is not None:
+            break
+        time.sleep(0.05)
+        app.processEvents()
+
+    # 4. Instantiate Main Window in background (reveals seamlessly on loadFinished)
+    win = AntigravityProWindow(splash=splash)
     global WINDOW_INSTANCE
     WINDOW_INSTANCE = win
-    win.show()
-    win.raise_()
-    win.activateWindow()
-    apply_dwm_frameless_styling(int(win.winId()))
-    QTimer.singleShot(50, lambda: apply_dwm_frameless_styling(int(win.winId())))
-    
+
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
