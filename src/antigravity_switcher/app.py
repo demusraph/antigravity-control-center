@@ -1283,6 +1283,87 @@ HTML_INTERFACE = """<!DOCTYPE html>
           </div>
           <span class="text-accent font-semibold flex items-center gap-1">Click agent sprite to open Dossier &rarr;</span>
         </div>
+
+        <!-- Commander Console & HQ Intercom Dock -->
+        <div id="commander-console-dock" class="rounded-xl border border-hairline bg-[#0a0c14] overflow-hidden shadow-2xl transition-all">
+          <!-- Dock Header -->
+          <div class="px-3.5 py-2 bg-surface-2/60 border-b border-hairline flex items-center justify-between text-xs select-none">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="relative flex h-2 w-2 shrink-0">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+              </span>
+              <span class="font-bold text-white font-mono text-[11px] flex items-center gap-1.5 truncate">
+                <i data-lucide="radio" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
+                <span>COMMANDER CONSOLE & HQ INTERCOM</span>
+              </span>
+              <span class="text-[10px] text-gray-500 font-mono hidden md:inline shrink-0">• 28 Agents Online</span>
+            </div>
+
+            <!-- Quick Directives Chips -->
+            <div class="flex items-center gap-1.5 overflow-x-auto text-[10px] font-mono shrink-0 ml-2">
+              <button onclick="sendQuickDirective('meeting')" title="Panggil seluruh divisi ke War Room" class="btn-spring px-2 py-0.5 rounded bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 transition-all flex items-center gap-1 cursor-pointer">
+                <span>📢 Rapat Divisi</span>
+              </button>
+              <button onclick="sendQuickDirective('break')" title="Rehat ke Espresso Lounge" class="btn-spring px-2 py-0.5 rounded bg-orange-950/40 hover:bg-orange-900/60 border border-orange-800/60 text-orange-300 transition-all flex items-center gap-1 cursor-pointer">
+                <span>☕ Rehat Kopi</span>
+              </button>
+              <button onclick="sendQuickDirective('secops')" title="Instruksikan SecOps Audit" class="btn-spring px-2 py-0.5 rounded bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 transition-all flex items-center gap-1 cursor-pointer">
+                <span>🛡️ SecOps Audit</span>
+              </button>
+              <button onclick="sendQuickDirective('engineering')" title="Instruksikan Sprint Build" class="btn-spring px-2 py-0.5 rounded bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 text-purple-300 transition-all flex items-center gap-1 cursor-pointer">
+                <span>🚀 Sprint Build</span>
+              </button>
+              <button onclick="toggleConsoleDock()" id="btn-toggle-console" title="Collapse/Expand Console" class="text-gray-400 hover:text-white p-1 rounded hover:bg-surface-3 transition-colors ml-1 cursor-pointer">
+                <i data-lucide="chevron-down" id="icon-toggle-console" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dock Body -->
+          <div id="commander-console-body" class="p-3 space-y-2.5">
+            <!-- Message Stream Log -->
+            <div id="commander-chat-stream" class="h-32 overflow-y-auto space-y-1.5 p-2.5 rounded-lg bg-[#06080d] border border-hairline font-mono text-[11px] leading-relaxed scrollbar-thin">
+              <!-- Initial Welcome Messages -->
+              <div class="flex items-start gap-2 text-gray-500 text-[10.5px]">
+                <span class="shrink-0 text-cyan-500 font-bold">[SYSTEM]</span>
+                <span>HQ Intercom Online • Mode: Dual-Intent Dispatcher siap menerima instruksi.</span>
+              </div>
+              <div class="flex items-start gap-2 text-slate-300 text-[10.5px]">
+                <span class="shrink-0 text-cyan-400 font-bold">[Root Orchestrator]</span>
+                <span>Selamat datang, Commander. 28 agen standby di pos masing-masing. Berikan instruksi kapan saja.</span>
+              </div>
+            </div>
+
+            <!-- Control & Input Bar -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between text-[10.5px] font-mono px-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-gray-400">Mode:</span>
+                  <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" id="chk-live-token-mode" onchange="updateConsoleModeBadge()" class="rounded bg-surface-2 border-hairline text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer">
+                    <span id="console-mode-badge" class="px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-950/60 border border-emerald-800/60 text-emerald-400 transition-all">
+                      🟢 0-Token Directive (Visual Office)
+                    </span>
+                  </label>
+                </div>
+                <span id="console-mode-hint" class="text-gray-500 text-[9.5px]">Gratis kuota • Eksekusi lokal instan</span>
+              </div>
+
+              <!-- Input Form -->
+              <div class="flex items-center gap-2">
+                <div class="relative flex-1">
+                  <i data-lucide="terminal" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                  <input id="commander-input" type="text" onkeydown="handleCommanderKey(event)" placeholder="Ketik perintah (contoh: 'ayo masing masing divisi ikut rapat, ada yang gua mau ngomongin')..." class="w-full bg-[#07090f] border border-hairline rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cyan-500/80 font-mono transition-colors">
+                </div>
+                <button onclick="dispatchCommanderCommand()" id="btn-commander-send" class="btn-spring px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg shadow-cyan-900/30 cursor-pointer shrink-0">
+                  <span>Send</span>
+                  <i data-lucide="send" class="w-3 h-3"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- View 2: Office Floor (Department Grid) -->
@@ -2277,6 +2358,177 @@ HTML_INTERFACE = """<!DOCTYPE html>
       if (anim.state === 'in_meeting') return 'idle';
       if (anim.state === 'working_at_desk') return 'typing';
       return null;
+    }
+
+    // ── COMMANDER CONSOLE & HQ INTERCOM DUAL-MODE ENGINE ──
+    let consoleDockCollapsed = false;
+
+    function toggleConsoleDock() {
+      consoleDockCollapsed = !consoleDockCollapsed;
+      const body = document.getElementById('commander-console-body');
+      const icon = document.getElementById('icon-toggle-console');
+      if (body) body.style.display = consoleDockCollapsed ? 'none' : 'block';
+      if (icon) icon.setAttribute('data-lucide', consoleDockCollapsed ? 'chevron-up' : 'chevron-down');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function updateConsoleModeBadge() {
+      const chk = document.getElementById('chk-live-token-mode');
+      const badge = document.getElementById('console-mode-badge');
+      const hint = document.getElementById('console-mode-hint');
+      if (!badge || !hint) return;
+      if (chk && chk.checked) {
+        badge.className = 'px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-amber-950/60 border border-amber-800/60 text-amber-400 transition-all';
+        badge.innerHTML = '⚡ Live Antigravity Prompt (Uses Token)';
+        hint.innerHTML = 'Forwarded to IDE Language Server via CDP';
+        hint.className = 'text-amber-400/80 text-[9.5px]';
+      } else {
+        badge.className = 'px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-emerald-950/60 border border-emerald-800/60 text-emerald-400 transition-all';
+        badge.innerHTML = '🟢 0-Token Directive (Visual Office)';
+        hint.innerHTML = 'Gratis kuota • Eksekusi lokal instan';
+        hint.className = 'text-gray-500 text-[9.5px]';
+      }
+    }
+
+    function escapeHtmlText(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function appendCommanderChat(senderRole, text, textColor = 'text-slate-300', tagColor = 'text-cyan-400') {
+      const stream = document.getElementById('commander-chat-stream');
+      if (!stream) return;
+      const now = new Date();
+      const timeStr = now.toTimeString().slice(0, 8);
+      const row = document.createElement('div');
+      row.className = `flex items-start gap-2 ${textColor} text-[10.5px] leading-relaxed`;
+      row.innerHTML = `
+        <span class="text-gray-600 shrink-0 text-[10px] select-none">[${timeStr}]</span>
+        <span class="shrink-0 font-bold ${tagColor}">[${escapeHtmlText(senderRole)}]</span>
+        <span class="flex-1 break-words">${escapeHtmlText(text)}</span>
+      `;
+      stream.appendChild(row);
+      stream.scrollTop = stream.scrollHeight;
+    }
+
+    function handleCommanderKey(event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        dispatchCommanderCommand();
+      }
+    }
+
+    function sendQuickDirective(type) {
+      const input = document.getElementById('commander-input');
+      if (!input) return;
+      if (type === 'meeting') {
+        input.value = 'ayo masing masing divisi ikut rapat, ada yang gua mau ngomongin';
+      } else if (type === 'break') {
+        input.value = 'semua agen standby silakan rehat sejenak dan ngopi di cafe lounge';
+      } else if (type === 'secops') {
+        input.value = 'secops lakukan audit zero-trust dan threat mapping sekarang';
+      } else if (type === 'engineering') {
+        input.value = 'engineering hub fokus ke sprint architecture dan refactor';
+      }
+      dispatchCommanderCommand();
+    }
+
+    function dispatchCommanderCommand() {
+      const input = document.getElementById('commander-input');
+      if (!input) return;
+      const rawText = input.value.trim();
+      if (!rawText) return;
+      input.value = '';
+
+      const isLiveTokenMode = !!(document.getElementById('chk-live-token-mode')?.checked);
+
+      // 1. Log Commander's command
+      appendCommanderChat('👑 Commander', rawText, 'text-white', 'text-amber-400');
+
+      // 2. If Live Token Mode is active -> send to CDP API endpoint
+      if (isLiveTokenMode) {
+        appendCommanderChat('⚡ ANTIGRAVITY IDE', 'Menginjeksi prompt ke Antigravity Language Server via CDP...', 'text-amber-300', 'text-amber-400');
+        fetch('/api/office/send_prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: rawText })
+        }).then(r => r.json()).then(res => {
+          if (res && res.success) {
+            appendCommanderChat('Root Orchestrator', 'Prompt berhasil diterima Language Server! Subagent sedang disiapkan.', 'text-emerald-300', 'text-emerald-400');
+          } else {
+            appendCommanderChat('Root Orchestrator', 'Catatan: ' + (res.message || 'Prompt diproses secara lokal.'), 'text-gray-400', 'text-cyan-400');
+          }
+        }).catch(e => {
+          console.warn("CDP dispatch error:", e);
+        });
+      }
+
+      // 3. Local Lightweight Intent Dispatcher (0 Token / Instant Visual Action)
+      const lower = rawText.toLowerCase();
+
+      // Pattern A: Meeting / Rapat / Diskusi
+      if (/(rapat|meeting|kumpul|ngomongin|diskusi|briefing|sync|war room)/i.test(lower)) {
+        let cleanTopic = rawText;
+        cleanTopic = cleanTopic.replace(/^(ayo|tolong|coba|semua|guys|rekan-rekan)\\s+/i, '');
+        if (cleanTopic.length > 40) cleanTopic = cleanTopic.slice(0, 37) + '...';
+
+        setTimeout(() => {
+          appendCommanderChat('Root Orchestrator', `Perintah diterima Commander! Mengumpulkan perwakilan seluruh divisi ke War Room untuk agenda: "${rawText}".`, 'text-cyan-300', 'text-cyan-400');
+        }, 150);
+
+        setTimeout(() => {
+          appendCommanderChat('Backend Core Dev', 'Siap Commander! Meninggalkan workstation menuju War Room.', 'text-purple-300', 'text-purple-400');
+        }, 450);
+
+        setTimeout(() => {
+          appendCommanderChat('SecOps Sentinel', 'Sentinel bergerak ke ruang rapat.', 'text-amber-300', 'text-amber-400');
+        }, 750);
+
+        // Convene War Room meeting with custom mission
+        callTeamMeeting(null, cleanTopic);
+        return;
+      }
+
+      // Pattern B: Break / Ngopi / Istirahat
+      if (/(kopi|coffee|rehat|break|istirahat|santai|cafe|lounge|espresso)/i.test(lower)) {
+        setTimeout(() => {
+          appendCommanderChat('Root Orchestrator', 'Perintah diterima, Commander! Semua agen standby dipersilakan santai sejenak di Breakroom & Lounge.', 'text-cyan-300', 'text-cyan-400');
+        }, 200);
+        setTimeout(() => {
+          appendCommanderChat('Espresso Barista', 'Mesin espresso siap menyala! Silakan mampir ke cafe. ☕', 'text-orange-300', 'text-orange-400');
+        }, 600);
+        highlightZone('cafe');
+        return;
+      }
+
+      // Pattern C: Security / Pentest / Audit / Zero-Trust
+      if (/(secops|security|audit|pentest|zero-trust|scan|vulnerability|threat)/i.test(lower)) {
+        setTimeout(() => {
+          appendCommanderChat('Root Orchestrator', 'Menginstruksikan tim QA, SecOps, dan Red Team untuk threat surface enumeration!', 'text-cyan-300', 'text-cyan-400');
+        }, 200);
+        setTimeout(() => {
+          appendCommanderChat('SecOps Sentinel', 'Zero-Trust scanning aktif. Port monitoring dan credential gate dalam kondisi siaga 🛡️', 'text-amber-300', 'text-amber-400');
+        }, 600);
+        highlightZone('secops');
+        return;
+      }
+
+      // Pattern D: Engineering / Code / Deploy / Build
+      if (/(deploy|build|coding|frontend|backend|feature|bug|refactor|ast|unit test)/i.test(lower)) {
+        setTimeout(() => {
+          appendCommanderChat('Root Orchestrator', 'Menginstruksikan Autonomous Engineering Hub untuk memprioritaskan pipeline ini!', 'text-cyan-300', 'text-cyan-400');
+        }, 200);
+        setTimeout(() => {
+          appendCommanderChat('Backend Core Dev', 'Understood Commander! Menyiapkan contract testing dan AST verification 🚀', 'text-purple-300', 'text-purple-400');
+        }, 600);
+        highlightZone('engineering');
+        return;
+      }
+
+      // Pattern E: General Status / Command
+      setTimeout(() => {
+        appendCommanderChat('Root Orchestrator', `Perintah dicatat, Commander: "${rawText}". Seluruh 28 agen standby menjalankan arahan.`, 'text-cyan-300', 'text-cyan-400');
+      }, 250);
     }
 
     // --- CANVAS ENGINE CONTROLLER & MAIN LOOP ---
@@ -4220,6 +4472,80 @@ HTML_INTERFACE = """<!DOCTYPE html>
 </html>
 """
 
+def inject_prompt_via_cdp(prompt_text: str):
+    """
+    Menginjeksi teks prompt langsung ke antarmuka chat Antigravity IDE
+    menggunakan Chrome DevTools Protocol (CDP) port lokal.
+    """
+    devtools_file = os.path.join(os.environ.get("APPDATA", ""), "Antigravity", "DevToolsActivePort")
+    if not os.path.exists(devtools_file):
+        return False, "DevToolsActivePort Antigravity tidak ditemukan."
+    try:
+        lines = open(devtools_file, "r", encoding="utf-8").read().splitlines()
+        if not lines or not lines[0].isdigit():
+            return False, "DevToolsActivePort tidak valid."
+        port = int(lines[0])
+        targets_url = f"http://127.0.0.1:{port}/json"
+        req = urllib.request.Request(targets_url, headers={"User-Agent": "AntigravityControlCenter"})
+        with urllib.request.urlopen(req, timeout=4) as response:
+            targets = json.loads(response.read().decode("utf-8"))
+        page = next((t for t in targets if t.get("type") == "page"), None)
+        if not page or "webSocketDebuggerUrl" not in page:
+            return False, "Halaman chat Antigravity tidak ditemukan di CDP."
+
+        ws_url = page["webSocketDebuggerUrl"]
+        path = ws_url.split(f":{port}")[1]
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5.0)
+        s.connect(("127.0.0.1", port))
+        handshake = (
+            f"GET {path} HTTP/1.1\r\n"
+            f"Host: 127.0.0.1:{port}\r\n"
+            f"Upgrade: websocket\r\n"
+            f"Connection: Upgrade\r\n"
+            f"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+            f"Sec-WebSocket-Version: 13\r\n\r\n"
+        )
+        s.sendall(handshake.encode())
+        s.recv(1024)
+
+        escaped_prompt = json.dumps(prompt_text)
+        js = f"""
+        (() => {{
+            const input = document.querySelector('textarea, [contenteditable="true"]');
+            if (!input) return 'NO_INPUT_FOUND';
+            if (input.tagName === 'TEXTAREA') {{
+                input.value = {escaped_prompt};
+                input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+            }} else {{
+                input.innerText = {escaped_prompt};
+                input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+            }}
+            const allButtons = Array.from(document.querySelectorAll('button'));
+            const sendBtn = allButtons.find(b => {{
+                const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+                const txt = (b.innerText || '').toLowerCase();
+                return aria.includes('send') || aria.includes('kirim') || aria.includes('submit') || txt.includes('send') || txt.includes('kirim');
+            }});
+            if (sendBtn) {{
+                sendBtn.click();
+                return 'CLICKED_SEND';
+            }} else {{
+                input.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }}));
+                return 'DISPATCHED_ENTER';
+            }}
+        }})()
+        """
+        msg = json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": js}}).encode()
+        frame = bytearray([0x81, 0x80 | 126, (len(msg) >> 8) & 0xff, len(msg) & 0xff, 0, 0, 0, 0]) + msg
+        s.sendall(frame)
+        res_raw = s.recv(4096)
+        s.close()
+        return True, "Prompt berhasil di-inject ke Antigravity IDE via CDP."
+    except Exception as e:
+        return False, f"CDP error: {str(e)}"
+
 # --- Local API Server for QWebEngineView ---
 class LocalApiHandler(BaseHTTPRequestHandler):
     cached_status = None
@@ -4479,8 +4805,16 @@ class LocalApiHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(resp_bytes)))
+        elif self.path == "/api/office/send_prompt":
+            prompt = req_data.get("prompt", "")
+            success, msg = inject_prompt_via_cdp(prompt)
+            resp_bytes = json.dumps({"success": success, "message": msg}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_bytes)))
             self.end_headers()
             self.wfile.write(resp_bytes)
+
         else:
             self.send_response(404)
             self.end_headers()
