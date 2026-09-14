@@ -1835,7 +1835,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
     const AMBIENT_MEETING_INTERVAL_MIN = 1200;  // ~20s at 60fps
     const AMBIENT_MEETING_INTERVAL_MAX = 2000;  // ~33s at 60fps
     let nextAmbientMeetingFrame = AMBIENT_MEETING_INTERVAL_MIN;
-    const MEETING_DURATION = 720;   // frames in meeting (~12s at 60fps for full animated conversation)
+    const MEETING_DURATION = 800;   // frames in meeting (~13.3s at 60fps for full animated deliberative conversation)
     const WORKING_DURATION = 600;   // frames working after meeting (~10s at 60fps)
     const WALK_SPEED = 2.4;         // pixels per frame (smooth walking pace)
 
@@ -2222,100 +2222,295 @@ HTML_INTERFACE = """<!DOCTYPE html>
       return selectedIds;
     }
 
-    function getConsensusLine(theme) {
-      if (theme === 'qa') return 'Consensus reached! Patch and verify with DoD.';
-      if (theme === 'security') return 'Consensus reached! Seal attack vectors immediately.';
-      if (theme === 'infra') return 'Consensus reached! Stage rollout & watch telemetry.';
-      if (theme === 'frontend') return 'Consensus reached! Polish UI components & deploy.';
-      if (theme === 'backend') return 'Consensus reached! Enforce API contracts & tests.';
-      if (theme === 'ai') return 'Consensus reached! Benchmark prompts & deploy models.';
-      if (theme === 'docs') return 'Consensus reached! Compound knowledge to vault.';
-      return 'Consensus reached! Disperse and execute with DoD.';
+    function extractMeetingSubject(rawUserPrompt, mission, cleanTopic) {
+      if (!rawUserPrompt) return mission || cleanTopic || 'Cross-Department Strategy & Sprint Roadmap';
+
+      let text = rawUserPrompt.trim();
+
+      // Check if it's purely general call without specific technical topic
+      if (/(ada yang gua mau ngomongin|ada yang mau dibahas|ikut rapat|kumpul dulu|rehat|santai|halo|pagi|siang|malam)/i.test(text) &&
+          !/(bug|ui|ux|endpoint|api|database|db|fastapi|security|secops|infra|sre|deploy|model|ai|llm|token|vault|demusbrain)/i.test(text)) {
+        return 'Cross-Department Strategy & Sprint Roadmap';
+      }
+
+      // Try extraction after action keywords (bahas, audit, review, investigasi, cek, tentang, soal)
+      const actionMatch = text.match(/(?:rapat\\s+bahas|bahas|diskusi|audit|review|investigasi|analisis|cek|tentang|soal|mengenai)\\s+(.+)/i);
+      let subjectCandidate = actionMatch ? actionMatch[1].trim() : text;
+
+      // Clean up common conversational prefixes and suffixes
+      let cleaned = subjectCandidate
+        .replace(/^(ayo|tolong|coba|semua|guys|rekan-rekan|halo|oi|min|bro|segera|kita mau)\\s+/gi, '')
+        .replace(/^(frontend|backend|secops|intelligence|engineering|qa|divisi\\s+\\w+)\\s+(dan\\s+\\w+\\s+)?/gi, '')
+        .replace(/(dong|yak|ya|nih|bro|min|sekarang|dulu)\\s*$/gi, '')
+        .replace(/[.,!?]+$/, '')
+        .trim();
+
+      if (cleaned.length >= 5) {
+        if (cleaned.length > 42) cleaned = cleaned.slice(0, 39) + '...';
+        return cleaned;
+      }
+
+      return cleanTopic || mission || 'Cross-Department Strategy & Sprint Roadmap';
     }
 
     function buildMeetingDialogues(mission, participants, rawUserPrompt) {
       const classification = classifyPromptTheme(rawUserPrompt || mission);
+      const theme = classification.theme || 'general';
+      const cleanSubject = extractMeetingSubject(rawUserPrompt, mission, classification.cleanTopic);
 
       const p0 = participants[0] || 'eng_2';
       const p1 = participants[1] || 'lab_1';
       const p2 = participants[2] || 'sec_7';
       const p3 = participants[3] || 'lib_1';
 
-      const s0 = pixelOfficeStations.find(s => s.id === p0) || OFFICE_STATIONS.find(s => s.id === p0) || { id: p0, title: 'Engineer', dept: 'engineering' };
-      const s1 = pixelOfficeStations.find(s => s.id === p1) || OFFICE_STATIONS.find(s => s.id === p1) || { id: p1, title: 'Specialist', dept: 'intelligence' };
-      const s2 = pixelOfficeStations.find(s => s.id === p2) || OFFICE_STATIONS.find(s => s.id === p2) || { id: p2, title: 'Sentinel', dept: 'secops' };
-      const s3 = pixelOfficeStations.find(s => s.id === p3) || OFFICE_STATIONS.find(s => s.id === p3) || { id: p3, title: 'Researcher', dept: 'intelligence' };
+      const s0 = pixelOfficeStations.find(s => s.id === p0) || OFFICE_STATIONS.find(s => s.id === p0) || { id: p0, title: 'Lead Specialist', dept: 'engineering' };
+      const s1 = pixelOfficeStations.find(s => s.id === p1) || OFFICE_STATIONS.find(s => s.id === p1) || { id: p1, title: 'Sparring Partner', dept: 'intelligence' };
+      const s2 = pixelOfficeStations.find(s => s.id === p2) || OFFICE_STATIONS.find(s => s.id === p2) || { id: p2, title: 'Sentinel Lead', dept: 'secops' };
+      const s3 = pixelOfficeStations.find(s => s.id === p3) || OFFICE_STATIONS.find(s => s.id === p3) || { id: p3, title: 'Vault Archivist', dept: 'intelligence' };
 
-      let cleanDirective = '';
-      if (rawUserPrompt) {
-        let cleaned = rawUserPrompt.replace(/^(ayo|tolong|coba|semua|guys|rekan-rekan|halo|oi)\\s+/i, '').trim();
-        if (cleaned.length > 34) cleaned = cleaned.slice(0, 31) + '...';
-        cleanDirective = `Commander: "${cleaned}"`;
-      } else {
-        let cleanMission = mission || classification.cleanTopic;
-        if (cleanMission.length > 34) cleanMission = cleanMission.slice(0, 31) + '...';
-        cleanDirective = `Directives: ${cleanMission}`;
+      const r0 = s0.assignedStaff?.role || s0.title;
+      const r1 = s1.assignedStaff?.role || s1.title;
+      const r2 = s2.assignedStaff?.role || s2.title;
+      const r3 = s3.assignedStaff?.role || s3.title;
+
+      // Turn 1: Lead Orchestrator (Root) - Problem Framing & Scope
+      let t1_thought = `Menganalisis arahan komandan: petakan arsitektur dan failure point untuk '${cleanSubject}'.`;
+      let t1_speech = `Agenda rapat dibuka: fokus ke '${cleanSubject}'. Divisi terkait, paparkan analisa teknis dan bottleneck sekarang!`;
+      if (theme === 'general') {
+        t1_thought = `Evaluasi roadmap sprint lintas divisi: koordinasikan prioritas dan mitigasi hambatan.`;
+        t1_speech = `Rapat koordinasi dibuka: evaluasi status dan blocker untuk '${cleanSubject}'. Perwakilan divisi, laporkan!`;
       }
+
+      // Turn 2: Primary Specialist (s0) - Technical Hypothesis & Proposal
+      let t2_thought = '';
+      let t2_speech = '';
+
+      // Turn 3: Sparring Partner (s1) - Mode C Critical Sparring & Edge Cases
+      let t3_thought = '';
+      let t3_speech = '';
+
+      // Turn 4: QA / Security Sentinel (s2) - Verification & DoD Gate
+      let t4_thought = `Enforce Definition of Done: zero-placeholder mandate, 100% test coverage, zero unverified assumptions.`;
+      let t4_speech = `Dari tim QA & SecOps: mitigasi dicatat. Tapi tidak ada kode yang merge untuk '${cleanSubject}' sebelum lulus test suite dan DoD 100% hijau.`;
+
+      // Turn 5: Knowledge / Research Miner (s3) - DemusBrain Grounding & Compounding
+      let t5_thought = `Kroscek dengan best practices di DemusBrain vault. Pastikan knowledge terkompound tanpa silo.`;
+      let t5_speech = `Struktur ini selaras dengan standard di DemusBrain vault. Seluruh keputusan dan mitigasi '${cleanSubject}' langsung kita arsipkan ke MOC.`;
+
+      // Turn 6: Lead Orchestrator (Root) - Synthesis & Actionable Directive
+      let t6_thought = `Sintesis selesai. Trade-off ditimbang, scope terkunci, kriteria acceptance rigid.`;
+      let t6_speech = `Konsensus bulat tercapai untuk '${cleanSubject}'! Arsitektur disepakati, mitigasi dikunci, DoD ditegakkan. Bubar dan eksekusi sekarang!`;
+
+      // Theme-specific customized dialogue logic
+      if (theme === 'frontend') {
+        t2_thought = `Investigasi DOM reconciliation dan layout thrashing pada '${cleanSubject}'. Butuh decouple state.`;
+        t2_speech = `Kami lacak bottleneck di re-render loop '${cleanSubject}'. Proposal: decouple component state dan standarkan styling tokens.`;
+
+        t3_thought = `Mode C Sparring: challenge memoization. Hati-hati stale closure pada event listeners dan form state.`;
+        t3_speech = `Tunggu dulu! Kalau state di-decouple tanpa reactive sync di '${cleanSubject}', ada risiko stale closure saat multi-tab.`;
+
+        t4_thought = `Zero-placeholder mandate. Verifikasi DOM layout, contrast ratio, dan headless Playwright assertions.`;
+        t4_speech = `Setuju mitigasinya. Tapi PR ditahan sampai Playwright E2E audit lulus tanpa flakiness di '${cleanSubject}'.`;
+
+        t5_thought = `Cek design tokens di DemusBrain SSOT. Pertahankan consistency dengan awesome-design-md standard.`;
+        t5_speech = `Pola komponen ini sudah match dengan token vault. Saya arsipkan catatan resolusi ke DemusBrain begitu tuntas.`;
+
+        t6_thought = `Trade-off frontend terkunci: 60fps micro-UX, zero visual glitch, DoD lulus.`;
+        t6_speech = `Konsensus frontend tercapai! Selesaikan decoupling '${cleanSubject}', jalankan Playwright, dan deploy dengan DoD 100%!`;
+      } else if (theme === 'security') {
+        t2_thought = `Threat modeling pada '${cleanSubject}'. Audit sanitization, unvalidated input, dan token tamper.`;
+        t2_speech = `Vektor risiko utama terdeteksi pada boundary '${cleanSubject}'. Kami siapkan strict input filter dan session pinning.`;
+
+        t3_thought = `Mode C Sparring: challenge security gate. Hard lockout bisa trigger false positive pada user legitimate.`;
+        t3_speech = `Awas, kalau blocking rule terlalu agresif di '${cleanSubject}', traffic valid bisa kena rate-limit false positive!`;
+
+        t4_thought = `Zero-trust verification gate. Lakukan fuzzing dan regression test sebelum deklarasi safe.`;
+        t4_speech = `Terapkan adaptive throttle sebagai fallback. Dan lakukan fuzzing payload sebelum tiket '${cleanSubject}' ditutup.`;
+
+        t5_thought = `Kroscek CWE/CVE pattern di DemusBrain vault. Pastikan tidak melanggar strict ethical boundaries.`;
+        t5_speech = `Pattern attack vector ini sudah terdokumentasi di security arsenal vault. Mitigasinya sudah compliant.`;
+
+        t6_thought = `Perimeter diamankan. Zero silent assumptions pada security posture.`;
+        t6_speech = `Konsensus SecOps terkunci! Segel perimeter '${cleanSubject}', aktifkan adaptive throttle, dan verifikasi exploit!`;
+      } else if (theme === 'backend') {
+        t2_thought = `Audit latency query, lock contention, dan AST layer pada '${cleanSubject}'.`;
+        t2_speech = `Kami prioritaskan refactor AST dan typed schema di '${cleanSubject}'. Database transactions dikunci isolasi strict.`;
+
+        t3_thought = `Mode C Sparring: challenge transaction locks. Long-running transaction memicu database pool exhaustion.`;
+        t3_speech = `Tantangan: lock table yang terlalu panjang di '${cleanSubject}' bisa bikin thread pool starvation saat peak load!`;
+
+        t4_thought = `Typecheck dan test coverage: strict MyPy, zero unchecked types, unit tests pass 100%.`;
+        t4_speech = `Solusinya gunakan optimistic concurrency control. Saya kawal typecheck dan pytest coverage 100% untuk '${cleanSubject}'.`;
+
+        t5_thought = `Periksa dampak migrasi schema pada downstream pipelines dan event streams.`;
+        t5_speech = `Pipeline downstream aman. Schema migration script '${cleanSubject}' sudah diverifikasi idempotensinya.`;
+
+        t6_thought = `Arsitektur rigid dan scalable. 70% pragmatic reliability + 30% speed.`;
+        t6_speech = `Sepakat! Implementasikan optimistic locking pada '${cleanSubject}', jalankan pytest, lalu merge!`;
+      } else if (theme === 'infra') {
+        t2_thought = `Profil CPU/RAM spikes, container memory leak, dan GC pressure pada '${cleanSubject}'.`;
+        t2_speech = `Kami deteksi spikes resource di container worker saat '${cleanSubject}'. Perlu tuning worker pool dan GC ceiling.`;
+
+        t3_thought = `Mode C Sparring: challenge restart policy. Auto-restart tanpa backoff bisa masking leak laten.`;
+        t3_speech = `Jangan sekadar naikkan RAM limit untuk '${cleanSubject}'. Cari root-cause leak-nya agar tidak bocor lagi!`;
+
+        t4_thought = `Pastikan observability: metric export, alert threshold, dan zero service degradation.`;
+        t4_speech = `Pasang heap dump profiling dan alert telemetry begitu threshold 80% tersentuh di '${cleanSubject}'.`;
+
+        t5_thought = `Dokumentasikan runbook insiden dan konfigurasi cluster ke DemusBrain.`;
+        t5_speech = `SOP mitigasi dan runbook auto-recovery '${cleanSubject}' sudah saya sinkronkan ke vault infra docs.`;
+
+        t6_thought = `Root cause terkendali. Health check probe dan alert threshold aktif.`;
+        t6_speech = `Konsensus infra tercapai! Pasang heap profiler di '${cleanSubject}', perbaiki leak, dan pantau metrics!`;
+      } else if (theme === 'ai') {
+        t2_thought = `Benchmark perplexity, latency per token, dan hallucination rate pada '${cleanSubject}'.`;
+        t2_speech = `Hasil benchmark menunjukkan token consumption di '${cleanSubject}' bisa ditekan 40% via prompt pruning.`;
+
+        t3_thought = `Mode C Sparring: challenge prompt pruning. Pruning agresif bisa menghilangkan instruksi grounding.`;
+        t3_speech = `Hati-hati, jika system prompt '${cleanSubject}' terlalu dipangkas, reasoning subagent bisa drifting!`;
+
+        t4_thought = `Audit output validation: JSON schema parsing, prompt injection defense, dan strict retry budget.`;
+        t4_speech = `Kita kunci schema outputnya dengan Pydantic parser dan fallback parser agar zero hallucination di '${cleanSubject}'.`;
+
+        t5_thought = `Sinkronisasi context grounding dengan DemusBrain knowledge graph.`;
+        t5_speech = `Context grounding akan kita inject via DemusBrain SSOT cache agar respon '${cleanSubject}' deterministik.`;
+
+        t6_thought = `Token efisien, reasoning tajam, output tervalidasi schema.`;
+        t6_speech = `Konsensus mantap! Optimasi prompt '${cleanSubject}', pasang schema validation, dan benchmark live!`;
+      } else if (theme === 'qa') {
+        t2_thought = `Trace execution stack, periksa unhandled exception dan edge-case input di '${cleanSubject}'.`;
+        t2_speech = `Kami berhasil mereproduksi bug pada '${cleanSubject}'. Error terjadi karena missing boundary validation.`;
+
+        t3_thought = `Mode C Sparring: challenge proposed fix. Pastikan patch tidak merusak modul dependensi.`;
+        t3_speech = `Pastikan patch '${cleanSubject}' tidak menyebabkan breaking change di consumer API yang bergantung padanya!`;
+
+        t4_thought = `Terapkan Definition of Done: automated unit test + regression test + zero-placeholder code.`;
+        t4_speech = `Wajib tambahkan regression test suite khusus untuk skenario '${cleanSubject}' sebelum branch di-merge.`;
+
+        t5_thought = `Catat Post-Mortem dan pelajaran teknis ke DemusBrain vault.`;
+        t5_speech = `Root-cause dan pencegahan bug '${cleanSubject}' akan langsung diarsipkan ke log insiden DemusBrain.`;
+
+        t6_thought = `Root cause terisolasi, patch teruji, DoD ditegakkan.`;
+        t6_speech = `Konsensus triage bulat! Terapkan patch bedah pada '${cleanSubject}', jalankan automated test, lalu release!`;
+      } else if (theme === 'docs') {
+        t2_thought = `Audit integritas SSOT di DemusBrain vault. Cek referensi silang dan konsistensi data pada '${cleanSubject}'.`;
+        t2_speech = `Struktur data untuk '${cleanSubject}' sudah kami verifikasi. Ada gap informasi yang perlu dikompound ke vault.`;
+
+        t3_thought = `Mode C Sparring: challenge vault structure. Hindari duplikasi catatan yang bikin fragmentasi.`;
+        t3_speech = `Pastikan update '${cleanSubject}' tidak membuat redundant notes. Sambungkan langsung ke MOC utama!`;
+
+        t4_thought = `Enforce universal ground-truth: zero silent assumptions dan deklarasi proxy eksplisit.`;
+        t4_speech = `Data provenance harus clean. Jangan ada klaim verified jika data mentah '${cleanSubject}' masih estimasi.`;
+
+        t5_thought = `Eksekusi compile.py dan sinkronisasi mirror C:\\DemusBrain secara atomik.`;
+        t5_speech = `Automasi mirror dan compile.py sudah siap jalan begitu dokumentasi '${cleanSubject}' ditutup.`;
+
+        t6_thought = `Pengetahuan terkompound permanen. SSOT vault tetap kokoh.`;
+        t6_speech = `Konsensus knowledge tercapai! Update MOC '${cleanSubject}', jalankan compile.py, dan mirror vault!`;
+      } else {
+        // General / All-Hands
+        t2_thought = `Mengevaluasi kapasitas engineering dan arsitektur sprint untuk '${cleanSubject}'.`;
+        t2_speech = `Dari sisi Engineering, fondasi untuk '${cleanSubject}' sudah stabil. Kami siap boost eksekusi begitu kontrak fix.`;
+
+        t3_thought = `Mode C Sparring: evaluasi 70/30 balance. Kecepatan tidak boleh mengorbankan stabilitas core.`;
+        t3_speech = `Ingat prinsip 70/30! Jangan terburu-buru delivery di '${cleanSubject}' kalau stabilitas belum 100%.`;
+
+        t4_thought = `Gatekeeper status: zero-placeholder mandate, automated test passing, clean logs.`;
+        t4_speech = `SecOps & QA siap kawal. Kriteria DoD tetap harga mati untuk seluruh deliverables '${cleanSubject}'.`;
+
+        t5_thought = `Memastikan keterhubungan antar modul dan sinkronisasi berkala ke DemusBrain SSOT.`;
+        t5_speech = `Semua milestone dan artefak dari '${cleanSubject}' akan terus dipantau dan disinkronkan ke vault.`;
+
+        t6_thought = `Alignment tercapai. Sinergi antar-divisi solid dan target terkunci.`;
+        t6_speech = `Konsensus all-hands tercapai untuk '${cleanSubject}'! Koordinasi terkunci, bubar rapat dan eksekusi dengan DoD!`;
+      }
+
+      // Dynamic chorus items
+      const chorusTexts = {
+        frontend: ['Rendering!', 'Polishing!', 'Testing!', 'Vaulting!'],
+        security: ['Sealing!', 'Guarding!', 'Auditing!', 'Logging!'],
+        backend: ['Compiling!', 'Locking!', 'Validating!', 'Syncing!'],
+        infra: ['Deploying!', 'Tuning!', 'Profiling!', 'Vaulting!'],
+        ai: ['Benchmarking!', 'Pruning!', 'Parsing!', 'Grounding!'],
+        qa: ['Patching!', 'Asserting!', 'DoD Green!', 'Archived!'],
+        docs: ['Writing!', 'Linking!', 'Auditing!', 'Compounding!'],
+        general: ['Executing!', 'Sparred!', 'Verified!', 'Compounded!']
+      }[theme] || ['Executing!', 'Sparred!', 'Verified!', 'Compounded!'];
 
       return [
         {
           speakerId: 'exec_1',
           speakerRole: 'Lead Orchestrator (Root)',
           dept: 'executive',
-          text: cleanDirective,
+          thought: t1_thought,
+          speech: t1_speech,
+          text: t1_speech,
           startFrame: 10,
-          duration: 100
-        },
-        {
-          speakerId: 'exec_2',
-          speakerRole: 'Strategic Advisor',
-          dept: 'executive',
-          text: classification.advisorLine,
-          startFrame: 115,
-          duration: 95
+          duration: 110
         },
         {
           speakerId: s0.id,
-          speakerRole: s0.assignedStaff?.role || s0.title,
+          speakerRole: r0,
           dept: s0.dept,
-          text: ROLE_DIALOGUE_LINES[s0.id] || 'Understood! Scaffolding implementation AST.',
-          startFrame: 215,
-          duration: 95
+          thought: t2_thought,
+          speech: t2_speech,
+          text: t2_speech,
+          startFrame: 125,
+          duration: 110
         },
         {
           speakerId: s1.id,
-          speakerRole: s1.assignedStaff?.role || s1.title,
+          speakerRole: r1,
           dept: s1.dept,
-          text: ROLE_DIALOGUE_LINES[s1.id] || 'Telemetry verified. DemusBrain vault synced.',
-          startFrame: 315,
-          duration: 95
+          thought: t3_thought,
+          speech: t3_speech,
+          text: t3_speech,
+          startFrame: 240,
+          duration: 110
         },
         {
           speakerId: s2.id,
-          speakerRole: s2.assignedStaff?.role || s2.title,
+          speakerRole: r2,
           dept: s2.dept,
-          text: ROLE_DIALOGUE_LINES[s2.id] || 'Threat surface mapped. Zero-trust gate ready.',
-          startFrame: 415,
-          duration: 95
+          thought: t4_thought,
+          speech: t4_speech,
+          text: t4_speech,
+          startFrame: 355,
+          duration: 110
+        },
+        {
+          speakerId: s3.id,
+          speakerRole: r3,
+          dept: s3.dept,
+          thought: t5_thought,
+          speech: t5_speech,
+          text: t5_speech,
+          startFrame: 470,
+          duration: 110
         },
         {
           speakerId: 'exec_1',
           speakerRole: 'Lead Orchestrator (Root)',
           dept: 'executive',
-          text: getConsensusLine(classification.theme),
-          startFrame: 515,
-          duration: 90
+          thought: t6_thought,
+          speech: t6_speech,
+          text: t6_speech,
+          startFrame: 585,
+          duration: 110
         },
         {
           isChorus: true,
+          speakerRole: 'All Delegates',
+          thought: 'Seluruh delegasi divisi serentak menyepakati konsensus akhir.',
+          speech: 'Konsensus tercapai. Disperse dan eksekusi!',
           chorusItems: [
-            { speakerId: s0.id, text: ROLE_CHORUS_EMOTES[s0.id] || 'Building!', dept: s0.dept },
-            { speakerId: s1.id, text: ROLE_CHORUS_EMOTES[s1.id] || 'Analyzing!', dept: s1.dept },
-            { speakerId: s2.id, text: ROLE_CHORUS_EMOTES[s2.id] || 'Defending!', dept: s2.dept },
-            { speakerId: s3.id, text: ROLE_CHORUS_EMOTES[s3.id] || 'Logged!', dept: s3.dept }
+            { speakerId: s0.id, text: chorusTexts[0], dept: s0.dept },
+            { speakerId: s1.id, text: chorusTexts[1], dept: s1.dept },
+            { speakerId: s2.id, text: chorusTexts[2], dept: s2.dept },
+            { speakerId: s3.id, text: chorusTexts[3], dept: s3.dept }
           ],
-          startFrame: 610,
-          duration: 95
+          startFrame: 700,
+          duration: 85
         }
       ];
     }
@@ -2348,7 +2543,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
       return null;
     }
 
-    function drawSpeechBubble(ctx, hx, hy, roleName, text, dept, animProgress = 1.0) {
+    function drawSpeechBubble(ctx, hx, hy, roleName, text, dept, animProgress = 1.0, thoughtText = null) {
       ctx.save();
 
       let strokeColor = '#38bdf8'; // Executive cyan
@@ -2357,19 +2552,31 @@ HTML_INTERFACE = """<!DOCTYPE html>
       else if (dept === 'intelligence') { strokeColor = '#34d399'; tagColor = '#34d399'; }
       else if (dept === 'secops') { strokeColor = '#fbbf24'; tagColor = '#fbbf24'; }
 
-      const lines = wrapDialogueText(text, 30);
+      const speechLines = wrapDialogueText(text, 28).slice(0, 2);
 
       ctx.font = '700 6.5px "JetBrains Mono", Consolas, monospace';
       const roleWidth = ctx.measureText(roleName).width;
-      ctx.font = '500 7px "JetBrains Mono", Consolas, monospace';
+
+      ctx.font = '600 6.5px "JetBrains Mono", Consolas, monospace';
       let maxLineWidth = roleWidth;
-      lines.forEach(l => {
+      speechLines.forEach(l => {
         const w = ctx.measureText(l).width;
         if (w > maxLineWidth) maxLineWidth = w;
       });
 
-      const bubbleW = Math.max(88, Math.min(180, Math.round(maxLineWidth + 16)));
-      const bubbleH = lines.length > 1 ? 28 : 20;
+      let cleanThought = '';
+      if (thoughtText) {
+        cleanThought = thoughtText.length > 34 ? thoughtText.slice(0, 31) + '...' : thoughtText;
+        ctx.font = 'italic 5.5px "JetBrains Mono", Consolas, monospace';
+        const tw = ctx.measureText('Thought: ' + cleanThought).width;
+        if (tw > maxLineWidth) maxLineWidth = tw;
+      }
+
+      const bubbleW = Math.max(96, Math.min(200, Math.round(maxLineWidth + 14)));
+      const hasThought = !!thoughtText;
+      const bubbleH = hasThought 
+        ? (speechLines.length > 1 ? 38 : 31) 
+        : (speechLines.length > 1 ? 28 : 20);
 
       // Position bubble above speaker's head, clamped within canvas
       const maxW = (ctx.canvas && ctx.canvas.width) ? ctx.canvas.width : (48 * 16);
@@ -2432,14 +2639,38 @@ HTML_INTERFACE = """<!DOCTYPE html>
       ctx.textBaseline = 'top';
       ctx.fillText(roleName, bx + 5, by + 3);
 
-      // Dialogue Text Lines
+      let curY = by + 11;
+
+      // Thought Line (if available)
+      if (hasThought) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '700 5.5px "JetBrains Mono", Consolas, monospace';
+        ctx.fillText('Thought: ', bx + 5, curY);
+        const pfxW = ctx.measureText('Thought: ').width;
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'italic 5.5px "JetBrains Mono", Consolas, monospace';
+        ctx.fillText(cleanThought, bx + 5 + pfxW, curY);
+
+        curY += 8;
+
+        // Micro divider line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(bx + 4, curY - 1);
+        ctx.lineTo(bx + bubbleW - 4, curY - 1);
+        ctx.stroke();
+      }
+
+      // Spoken Dialogue Text Lines
       ctx.fillStyle = '#f8fafc';
-      ctx.font = '500 7px "JetBrains Mono", Consolas, monospace';
-      if (lines.length > 1) {
-        ctx.fillText(lines[0], bx + 5, by + 11);
-        ctx.fillText(lines[1], bx + 5, by + 19);
-      } else {
-        ctx.fillText(lines[0], bx + 5, by + 11);
+      ctx.font = '600 6.5px "JetBrains Mono", Consolas, monospace';
+      if (speechLines.length > 1) {
+        ctx.fillText('"' + speechLines[0], bx + 5, curY);
+        ctx.fillText(speechLines[1] + '"', bx + 5, curY + 8);
+      } else if (speechLines.length === 1) {
+        ctx.fillText('"' + speechLines[0] + '"', bx + 5, curY);
       }
 
       ctx.restore();
@@ -2616,6 +2847,59 @@ HTML_INTERFACE = """<!DOCTYPE html>
         <span class="shrink-0 font-bold ${tagColor}">[${escapeHtmlText(senderRole)}]</span>
         <span class="flex-1 break-words">${escapeHtmlText(text)}</span>
       `;
+      stream.appendChild(row);
+      stream.scrollTop = stream.scrollHeight;
+    }
+
+    function appendCommanderMeetingTurn(d) {
+      const stream = document.getElementById('commander-chat-stream');
+      if (!stream) return;
+      const now = new Date();
+      const timeStr = now.toTimeString().slice(0, 8);
+
+      let deptColor = 'text-cyan-400';
+      let tagBg = 'bg-cyan-950/60 border-cyan-800/60';
+      if (d.dept === 'engineering') { deptColor = 'text-purple-400'; tagBg = 'bg-purple-950/60 border-purple-800/60'; }
+      else if (d.dept === 'intelligence') { deptColor = 'text-emerald-400'; tagBg = 'bg-emerald-950/60 border-emerald-800/60'; }
+      else if (d.dept === 'secops') { deptColor = 'text-amber-400'; tagBg = 'bg-amber-950/60 border-amber-800/60'; }
+
+      if (d.isChorus) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 text-[10px] text-gray-400 font-mono py-1.5 border-t border-hairline/50';
+        row.innerHTML = `
+          <span class="text-gray-600 shrink-0 select-none">[${timeStr}]</span>
+          <span class="px-1.5 py-0.5 rounded border border-hairline bg-surface-2 text-white font-semibold">[ALL DELEGATES]</span>
+          <span class="text-gray-300 italic">Konsensus tercapai. Seluruh divisi serempak membubarkan diri ke pos kerja masing-masing!</span>
+        `;
+        stream.appendChild(row);
+        stream.scrollTop = stream.scrollHeight;
+        return;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'space-y-1 py-1.5 border-b border-hairline/40 font-mono text-[10.5px]';
+
+      let thoughtHtml = '';
+      if (d.thought) {
+        thoughtHtml = `
+          <div class="flex items-start gap-1.5 text-[9.5px] text-slate-400 pl-3 italic border-l-2 border-slate-700/80 my-0.5">
+            <span class="text-slate-500 font-semibold select-none">[Thought]</span>
+            <span class="leading-tight">${escapeHtmlText(d.thought)}</span>
+          </div>
+        `;
+      }
+
+      row.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-gray-600 shrink-0 text-[9.5px] select-none">[${timeStr}]</span>
+          <span class="px-1.5 py-0.5 rounded border ${tagBg} ${deptColor} font-bold text-[9.5px]">[${escapeHtmlText(d.speakerRole)}]</span>
+        </div>
+        ${thoughtHtml}
+        <div class="text-white font-medium pl-3 text-[10.5px] leading-relaxed">
+          "${escapeHtmlText(d.speech || d.text)}"
+        </div>
+      `;
+
       stream.appendChild(row);
       stream.scrollTop = stream.scrollHeight;
     }
@@ -3489,7 +3773,8 @@ HTML_INTERFACE = """<!DOCTYPE html>
                 const progress = (currentFrame - d.startFrame) / d.duration;
 
                 if (currentFrame === d.startFrame) {
-                  console.log(`[Meeting Dialogue] Turn ${i + 1}/${activeMeetingSession.dialogues.length}: ${d.speakerRole || 'Chorus'} -> "${d.text || 'Chorus Reactions'}"`);
+                  console.log(`[Meeting Dialogue] Turn ${i + 1}/${activeMeetingSession.dialogues.length}: ${d.speakerRole || 'Chorus'} -> [Thought: ${d.thought || '-'}] "${d.speech || d.text || 'Chorus Reactions'}"`);
+                  appendCommanderMeetingTurn(d);
                 }
 
                 if (d.isChorus) {
@@ -3505,7 +3790,7 @@ HTML_INTERFACE = """<!DOCTYPE html>
                 } else {
                   // Single active speech bubble pointing down to speaker
                   const pos = getSpeakerHeadPos(d.speakerId);
-                  drawSpeechBubble(pixelOfficeCtx, pos.x, pos.y, d.speakerRole, d.text, d.dept, progress);
+                  drawSpeechBubble(pixelOfficeCtx, pos.x, pos.y, d.speakerRole, d.speech || d.text, d.dept, progress, d.thought);
                 }
                 break;
               }
