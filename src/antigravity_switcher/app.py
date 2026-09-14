@@ -2450,7 +2450,8 @@ HTML_INTERFACE = """<!DOCTYPE html>
         const isSlotActive = isRoomActive(slot.dept);
         const isHovered = (pixelOfficeHoverIdx === sIdx);
         const isWorking = (staff.desk_status === 'WORKING');
-        const charIdx = sIdx % 6;
+        const deptCharMap = { 'executive': 0, 'secops': 1, 'engineering': 2, 'intelligence': 3, 'knowledge': 4, 'cafe': 5 };
+        const charIdx = (deptCharMap[slot.dept] !== undefined) ? deptCharMap[slot.dept] : (sIdx % 6);
         const atDesk = isAgentAtDesk(slot.id);
         const anim = agentAnimState[slot.id];
 
