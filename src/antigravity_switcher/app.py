@@ -2720,10 +2720,9 @@ HTML_INTERFACE = """<!DOCTYPE html>
         selectedStaffIds = selectSmartDelegates(rawUserPrompt || taskMission);
       }
 
-      let selectedSlots = pixelOfficeStations.filter(s => selectedStaffIds.includes(s.id));
-      if (selectedSlots.length === 0) {
-        selectedSlots = OFFICE_STATIONS.filter(s => selectedStaffIds.includes(s.id));
-      }
+      let selectedSlots = selectedStaffIds
+        .map(id => pixelOfficeStations.find(s => s.id === id) || OFFICE_STATIONS.find(s => s.id === id))
+        .filter(Boolean);
 
       if (selectedSlots.length === 0) return;
 
@@ -3846,17 +3845,6 @@ HTML_INTERFACE = """<!DOCTYPE html>
       const parentAgent = (depts.executive && depts.executive.staff && depts.executive.staff[0]) ? depts.executive.staff[0] : null;
       const realSubagents = data.subagents || [];
 
-      // Auto-trigger War Room meeting ONLY when actual new subagent count increases (zero false triggers)
-      const currentMission = data.mission || (data.active_session && data.active_session.mission) || '';
-      const currentSubs = realSubagents.length;
-      if (lastKnownSubagentCount !== -1 && currentSubs > lastKnownSubagentCount) {
-        console.log("[Auto-Delegation] New subagent detected -> Convening War Room alignment meeting with LLM debate!");
-        callTeamMeeting(null, currentMission);
-      }
-      lastKnownSubagentCount = currentSubs;
-      lastKnownMission = currentMission;
-      currentOfficeMission = currentMission;
-
       // Clone stations and compute pixel positions
       const stations = JSON.parse(JSON.stringify(OFFICE_STATIONS));
       stations.forEach(slot => {
@@ -3941,10 +3929,50 @@ HTML_INTERFACE = """<!DOCTYPE html>
         }
       });
 
-      // Schedule first ambient meeting after a short warmup
-      if (nextAmbientMeetingFrame < pixelOfficeFrame + 300) {
-        nextAmbientMeetingFrame = pixelOfficeFrame + 300 + Math.floor(Math.random() * 300);
+      // 4. Auto-trigger War Room meeting ONLY when actual new subagent count increases (zero false triggers)
+      const currentSubs = realSubagents.length;
+      const currentPrompt = (data.active_session && data.active_session.prompt) || data.mission || '';
+      currentOfficeMission = currentPrompt;
+
+      if (lastKnownSubagentCount !== -1 && currentSubs > lastKnownSubagentCount) {
+        const newlySpawned = realSubagents.slice(lastKnownSubagentCount);
+        const newSub = newlySpawned[newlySpawned.length - 1] || realSubagents[realSubagents.length - 1];
+        const newSubRole = newSub.role || newSub.type || 'Subagent Specialist';
+        const newSubPrompt = newSub.prompt || newSub.full_prompt || currentPrompt || 'Subagent Autonomous Delegation';
+
+        // Find desk station assigned to newly spawned subagent
+        const assignedSlot = stations.find(s => s.assignedStaff && (s.assignedStaff.id === newSub.id || s.assignedStaff.role === newSub.role));
+        const subSlotId = assignedSlot ? assignedSlot.id : (stations.find(s => s.dept === (newSub.department || 'engineering'))?.id || 'eng_2');
+
+        // Select peer delegates to accompany subagent in War Room
+        // Seat 0: new subagent; Seat 1: lead architect / research; Seat 2: QA / DoD sentinel; Seat 3: DemusBrain vault curator
+        const peerArch = (stations.find(s => s.id === 'eng_7') || stations.find(s => s.id === 'lab_1'))?.id || 'eng_7';
+        const peerQa = (stations.find(s => s.id === 'sec_7') || stations.find(s => s.id === 'sec_6'))?.id || 'sec_7';
+        const peerVault = (stations.find(s => s.id === 'lib_1') || stations.find(s => s.id === 'lab_2'))?.id || 'lib_1';
+
+        const delegateIds = [subSlotId];
+        for (const pid of [peerArch, peerQa, peerVault, 'eng_3', 'sec_2']) {
+          if (!delegateIds.includes(pid) && delegateIds.length < 4) {
+            delegateIds.push(pid);
+          }
+        }
+
+        const missionTopic = `Delegation: ${newSubRole}`;
+        const agendaDirective = `Briefing subagent '${newSubRole}' on task: ${newSubPrompt}`;
+
+        console.log(`[Auto-Delegation] New subagent '${newSubRole}' detected at desk [${subSlotId}] -> Convening War Room alignment briefing!`);
+
+        appendCommanderChat('Root Orchestrator', `Subagent '${newSubRole}' didelegasikan ke pos [${subSlotId}]. Memanggil perwakilan ke War Room untuk alignment briefing kriteria DoD!`, 'text-cyan-300', 'text-cyan-400');
+        setTimeout(() => {
+          let cleanSnippet = newSubPrompt.replace(/^(ayo|tolong|coba|semua|guys|rekan-rekan)\\s+/i, '').trim();
+          if (cleanSnippet.length > 45) cleanSnippet = cleanSnippet.slice(0, 42) + '...';
+          appendCommanderChat(newSubRole, `Siap Lead! Menuju War Room membawa scope tugas: "${cleanSnippet}"`, 'text-emerald-300', 'text-emerald-400');
+        }, 350);
+
+        callTeamMeeting(delegateIds, missionTopic, agendaDirective);
       }
+      lastKnownSubagentCount = currentSubs;
+      lastKnownMission = currentPrompt;
 
       if (!pixelOfficeAnimationId) {
         pixelOfficeAnimationId = requestAnimationFrame(renderPixelFrame);
