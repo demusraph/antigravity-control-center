@@ -1,11 +1,11 @@
-﻿[build-system]
+[build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "antigravity-switcher"
-version = "1.0.0"
-description = "Enterprise-grade multi-account switcher and autonomous quota auto-pilot for Google Antigravity"
+name = "antigravity-control-center"
+version = "1.2.2"
+description = "Enterprise-grade Control Center, multi-account switcher, and autonomous quota auto-pilot for Google Antigravity"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
@@ -30,11 +30,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/demusraph/antigravity-account-switcher"
-Repository = "https://github.com/demusraph/antigravity-account-switcher.git"
-Issues = "https://github.com/demusraph/antigravity-account-switcher/issues"
+Homepage = "https://github.com/demusraph/antigravity-control-center"
+Repository = "https://github.com/demusraph/antigravity-control-center.git"
+Issues = "https://github.com/demusraph/antigravity-control-center/issues"
 
 [project.scripts]
+antigravity-control-center = "antigravity_switcher.app:main"
 antigravity-switcher = "antigravity_switcher.app:main"
 antigravity-cli = "antigravity_switcher.switcher:main"
 

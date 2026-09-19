@@ -1,4 +1,4 @@
-﻿# Security Policy & Architecture
+# Security Policy & Architecture
 
 The security and privacy of user credentials is the core design tenet of **Antigravity Control Center**.
 
@@ -41,6 +41,6 @@ Security fixes and hardening patches are applied to the latest release on `main`
 If you discover a security vulnerability or credential handling flaw:
 
 1. **Do NOT open a public issue.**
-2. Report the vulnerability privately via **[GitHub Private Vulnerability Reporting](https://github.com/demusraph/antigravity-account-switcher/security/advisories/new)**.
+2. Report the vulnerability privately via **[GitHub Private Vulnerability Reporting](https://github.com/demusraph/antigravity-control-center/security/advisories/new)**.
 3. Include detailed reproduction steps, target component (`core`, `daemon`, or `gui`), and potential impact.
 4. You will receive an initial response within **48 hours**, followed by a timeline for a patch release.

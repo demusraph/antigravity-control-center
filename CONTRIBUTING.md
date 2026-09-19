@@ -1,4 +1,4 @@
-﻿# Contributing to Antigravity Control Center
+# Contributing to Antigravity Control Center
 
 Thank you for your interest in contributing to **Antigravity Control Center**! We welcome bug fixes, performance optimizations, documentation improvements, and platform adapters.
 
@@ -13,8 +13,8 @@ Thank you for your interest in contributing to **Antigravity Control Center**! W
 
 ### Clone & Virtual Environment
 ```bash
-git clone https://github.com/demusraph/antigravity-account-switcher.git
-cd antigravity-account-switcher
+git clone https://github.com/demusraph/antigravity-control-center.git
+cd antigravity-control-center
 
 # Create virtual environment
 python -m venv venv

@@ -6,7 +6,7 @@
 
   **Autonomous Multi-Account Orchestrator, Quota Radar & Overnight Task Continuity**
 
-  [![Release](https://img.shields.io/github/v/release/demusraph/antigravity-account-switcher?style=flat-square&color=2B7FFF)](https://github.com/demusraph/antigravity-account-switcher/releases)
+  [![Release](https://img.shields.io/github/v/release/demusraph/antigravity-control-center?style=flat-square&color=2B7FFF)](https://github.com/demusraph/antigravity-control-center/releases)
   [![Version](https://img.shields.io/badge/Version-v1.2.2-blue?style=flat-square)](CHANGELOG.md)
   [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(x64)-0078D6?style=flat-square&logo=windows&logoColor=white)](https://microsoft.com)
   [![macOS Roadmap](https://img.shields.io/badge/macOS-Planned%20v1.3.0-orange?style=flat-square&logo=apple&logoColor=white)](#-roadmap)
@@ -122,7 +122,7 @@ flowchart TD
 ## 🚀 Quick Start
 
 ### Option 1: Standalone Executable (No Python Required)
-1. Download **`AntigravityControlCenter-Windows-x64.zip`** from [Latest Releases](https://github.com/demusraph/antigravity-account-switcher/releases).
+1. Download **`AntigravityControlCenter-Windows-x64.zip`** from [Latest Releases](https://github.com/demusraph/antigravity-control-center/releases).
 2. Extract the ZIP archive anywhere on your system.
 3. Run **`AntigravityControlCenter.exe`**.
 
@@ -140,8 +140,8 @@ flowchart TD
 ### Option 2: Run from Source (Python 3.10+)
 ```bash
 # 1. Clone the repository
-git clone https://github.com/demusraph/antigravity-account-switcher.git
-cd antigravity-account-switcher
+git clone https://github.com/demusraph/antigravity-control-center.git
+cd antigravity-control-center
 
 # 2. Install dependencies
 pip install -r requirements.txt
@@ -178,7 +178,7 @@ Run **`scripts\Create-Desktop-Shortcut.bat`** to instantly create a shortcut wit
 ## 📁 Repository Structure
 
 ```text
-antigravity-account-switcher/
+antigravity-control-center/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
 │   │   ├── bug_report.yml          # Structured GitHub Issue Form for bug triage
