@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-10-17
+
+### Added
+- **Headless 24/7 Launcher (`Launch-Daemon.bat`)**: Dedicated batch script to run the Auto-Pilot quota monitoring daemon on semi-headless Mini PCs and servers with zero GUI overhead and zero pip dependencies.
+- **Interactive Enrollment Session**: CLI (`python main.py --cli` option `+`) now enters an active 5-minute polling loop with real-time feedback, automatically detecting Google OAuth completion and registering new accounts with graceful rollback.
+- **Dynamic Enrollment Banner**: Web/Desktop GUI displays a live pulse status banner with instant cancellation (`/api/enroll/cancel`) while awaiting Antigravity sign-in.
+
+### Fixed
+- **Fast Offline JWT `id_token` Extraction**: Replaced fragile, blocking Google UserInfo HTTP API requests (5s timeout) with 0ms offline Base64URL JWT payload extraction directly from the modern `gemini:antigravity` credential blob.
+- **Modern Session Cache Multi-Layer Wipe**: Cleans `jetski.onboarding.lastLoginUsername` from `app_storage.json`, resets onboarding sentinels in `state.vscdb`, and removes Chromium `Cookies` / `Cookies-journal` so Antigravity opens in a true clean-slate login state.
+- **Process Lock Prevention**: Upgraded `stop_antigravity()` to use tree-kill (`taskkill /F /T`) and process polling to ensure all worker/GPU processes release file locks before deleting session cookies.
+- **Auto-Pilot Daemon Enrollment Guard (`enrolling.lock`)**: Implemented mutual exclusion lockfile preventing the background daemon from erroneously triggering an auto-swap or killing the login session during account enrollment.
+
+---
+
 ## [1.3.1] - 2026-09-10
 
 ### Added

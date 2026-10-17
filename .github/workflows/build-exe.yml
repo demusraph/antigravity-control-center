@@ -35,8 +35,8 @@ jobs:
           pyinstaller --noconsole --onedir `
             --name="AntigravityControlCenter" `
             --icon="assets/icons/app_icon.ico" `
-            --add-data="assets/icons/app_icon.png;assets/icons" `
-            --add-data="assets/icons/app_icon.ico;assets/icons" `
+            --add-data="assets;assets" `
+            --add-data="src/antigravity_switcher/assets;antigravity_switcher/assets" `
             --hidden-import="PyQt5" `
             --hidden-import="PyQt5.QtWebEngineWidgets" `
             --paths="src" `
