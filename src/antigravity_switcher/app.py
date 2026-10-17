@@ -39,6 +39,7 @@ sys.excepthook = log_exception
 
 import re
 import json
+import base64
 import sqlite3
 import shutil
 import subprocess
@@ -85,11 +86,32 @@ ANTIGRAV_ROAMING = os.path.join(APPDATA, "Antigravity")
 ANTIGRAV_EXE = os.path.join(LOCALAPPDATA, "Programs", "Antigravity", "Antigravity.exe")
 STATE_VSCDB_FILE = os.path.join(ANTIGRAV_ROAMING, "User", "globalStorage", "state.vscdb")
 COOKIES_FILE = os.path.join(ANTIGRAV_ROAMING, "Network", "Cookies")
+COOKIES_JOURNAL = os.path.join(ANTIGRAV_ROAMING, "Network", "Cookies-journal")
+APP_STORAGE_JSON = os.path.join(ANTIGRAV_ROAMING, "app_storage.json")
 
+SWITCHER_DIR = os.path.join(USERPROFILE, ".gemini", "antigravity-switcher")
 ACCOUNTS_DIR = os.path.join(SWITCHER_DIR, "accounts")
 ACTIVE_FILE = os.path.join(SWITCHER_DIR, "active_email.txt")
+ENROLL_LOCK_FILE = os.path.join(SWITCHER_DIR, "enrolling.lock")
 AUTOPILOT_PID_FILE = os.path.join(SWITCHER_DIR, "autopilot.pid")
 LOG_FILE = os.path.join(SWITCHER_DIR, "autopilot.log")
+
+def get_antigravity_exe():
+    candidates = [
+        ANTIGRAV_EXE,
+        os.path.join(LOCALAPPDATA, "Programs", "antigravity", "Antigravity.exe"),
+        os.path.join(os.environ.get("ProgramFiles", "C:\\Program Files"), "Antigravity", "Antigravity.exe"),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    try:
+        w = shutil.which("Antigravity") or shutil.which("antigravity")
+        if w:
+            return w
+    except Exception:
+        pass
+    return ANTIGRAV_EXE
 # Icon detection across bundle, assets/icons, and repo structure
 _CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_DIR = os.path.dirname(os.path.dirname(_CURR_DIR))
@@ -204,6 +226,22 @@ def refresh_access_token(refresh_token):
 def fetch_email_from_blob(blob_bytes):
     try:
         data = json.loads(blob_bytes.decode('utf-8'))
+        
+        # 1. Primary: Fast offline decode from id_token JWT (Modern Antigravity format)
+        id_token = data.get("id_token")
+        if id_token and isinstance(id_token, str):
+            parts = id_token.split('.')
+            if len(parts) >= 2:
+                try:
+                    payload_b64 = parts[1] + '=' * (-len(parts[1]) % 4)
+                    payload = json.loads(base64.urlsafe_b64decode(payload_b64).decode('utf-8'))
+                    email = payload.get("email")
+                    if email:
+                        return email
+                except Exception:
+                    pass
+
+        # 2. Secondary fallback: Refresh token and query Google UserInfo API (Legacy format)
         rf = data.get("token", {}).get("refresh_token", "")
         token = data.get("token", {}).get("access_token", "")
         if rf:
@@ -358,28 +396,56 @@ def save_active_credential():
 
 def stop_antigravity():
     try:
-        subprocess.run(["taskkill", "/F", "/IM", "Antigravity.exe"], capture_output=True, text=True)
+        subprocess.run(["taskkill", "/F", "/T", "/IM", "Antigravity.exe"], capture_output=True, text=True)
     except Exception:
         pass
-    time.sleep(1.5)
-
-def start_antigravity():
-    if os.path.exists(ANTIGRAV_EXE):
-        subprocess.Popen([ANTIGRAV_EXE], shell=True)
-
-def clear_session_cache():
-    if os.path.exists(COOKIES_FILE):
+    for _ in range(10):
         try:
-            os.remove(COOKIES_FILE)
+            out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Antigravity.exe"], capture_output=True, text=True).stdout
+            if "Antigravity.exe" not in out:
+                break
         except Exception:
             pass
+        time.sleep(0.5)
+
+def start_antigravity():
+    exe = get_antigravity_exe()
+    if os.path.exists(exe):
+        subprocess.Popen([exe], shell=True)
+
+def clear_session_cache():
+    # 1. Chromium network cookies & journal
+    for cf in [COOKIES_FILE, COOKIES_JOURNAL]:
+        if os.path.exists(cf):
+            try:
+                os.remove(cf)
+            except Exception:
+                pass
+                
+    # 2. Antigravity SQLite state.vscdb
     if os.path.exists(STATE_VSCDB_FILE):
         try:
             conn = sqlite3.connect(STATE_VSCDB_FILE)
             c = conn.cursor()
-            c.execute("DELETE FROM ItemTable WHERE key IN ('antigravityUnifiedStateSync.oauthToken', 'antigravityUnifiedStateSync.userStatus')")
+            c.execute("DELETE FROM ItemTable WHERE key IN ('antigravityOnboarding', 'antigravityUnifiedStateSync.onboarding', 'antigravityUnifiedStateSync.oauthToken', 'antigravityUnifiedStateSync.userStatus')")
             conn.commit()
             conn.close()
+        except Exception:
+            pass
+
+    # 3. Antigravity app_storage.json (remove last login user memory)
+    if os.path.exists(APP_STORAGE_JSON):
+        try:
+            with open(APP_STORAGE_JSON, "r", encoding="utf-8") as f:
+                app_storage = json.load(f)
+            modified = False
+            for k in ["jetski.onboarding.lastLoginUsername", "jetski.onboarding.lastLoginIsGcpTos"]:
+                if k in app_storage:
+                    del app_storage[k]
+                    modified = True
+            if modified:
+                with open(APP_STORAGE_JSON, "w", encoding="utf-8") as f:
+                    json.dump(app_storage, f, indent=2)
         except Exception:
             pass
 
@@ -1431,6 +1497,18 @@ HTML_INTERFACE = """<!DOCTYPE html>
         <p class="text-xs text-gray-400 leading-relaxed">
           Launches an isolated Antigravity sign-in session. Your current active session is preserved safely. Once you sign into Google in the Antigravity window, the account is automatically enrolled into this controller.
         </p>
+        <div id="enroll-active-banner" class="hidden border border-accent/40 rounded-lg bg-accent/10 p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-accent animate-ping"></span>
+              <span class="text-xs font-semibold text-white">Sesi Login Antigravity Terbuka</span>
+            </div>
+            <button onclick="cancelEnroll()" class="h-6 px-2.5 rounded text-[11px] bg-surface-3 hover:bg-surface-4 text-[#CCCCCC] transition-all">Batalkan</button>
+          </div>
+          <p class="text-[11.5px] text-[#A0A0A0] leading-relaxed">
+            Silakan selesaikan Google Sign-In di jendela Antigravity. Controller otomatis mendeteksi dan mendaftarkan akun begitu login selesai.
+          </p>
+        </div>
         <button onclick="enrollAccount()" class="h-8 px-4 rounded-md bg-accent hover:bg-accent-hover text-white text-xs font-semibold flex items-center gap-1.5 transition-all">
           <i data-lucide="plus" class="w-3.5 h-3.5"></i>
           <span>Sign In With Google</span>
@@ -4626,6 +4704,16 @@ HTML_INTERFACE = """<!DOCTYPE html>
         apBtn.className = "btn-spring h-7 px-2.5 rounded-md border text-xs font-medium flex items-center gap-1.5 transition-all bg-surface-3 border-hairline text-gray-400 hover:text-white whitespace-nowrap shrink-0 cursor-pointer";
       }
 
+      // Enrollment Banner Toggle
+      const enrollBanner = document.getElementById('enroll-active-banner');
+      if (enrollBanner) {
+        if (state.is_enrolling) {
+          enrollBanner.classList.remove('hidden');
+        } else {
+          enrollBanner.classList.add('hidden');
+        }
+      }
+
       // Quick Rec Box
       const quickRecBox = document.getElementById('quick-rec-box');
       if (state.best && state.best !== state.active) {
@@ -4896,10 +4984,15 @@ HTML_INTERFACE = """<!DOCTYPE html>
     }
 
     async function enrollAccount() {
-      if (confirm("Antigravity will restart with an empty session so you can log in. Proceed?")) {
+      if (confirm("Antigravity akan direstart dengan sesi kosong untuk login akun baru. Lanjutkan?")) {
         await fetch('/api/enroll', { method: 'POST' });
-        setTimeout(fetchStatus, 1500);
+        setTimeout(fetchStatus, 1000);
       }
+    }
+
+    async function cancelEnroll() {
+      await fetch('/api/enroll/cancel', { method: 'POST' });
+      setTimeout(fetchStatus, 1000);
     }
 
     async function clearLogs() {
@@ -5476,14 +5569,39 @@ class LocalApiHandler(BaseHTTPRequestHandler):
 
         elif self.path == "/api/enroll":
             save_active_credential()
+            try:
+                with open(ENROLL_LOCK_FILE, "w", encoding="utf-8") as f:
+                    f.write(str(int(time.time())))
+            except Exception:
+                pass
             stop_antigravity()
             delete_windows_credential(CRED_TARGET)
             clear_session_cache()
             if os.path.exists(ACTIVE_FILE):
-                os.remove(ACTIVE_FILE)
+                try:
+                    os.remove(ACTIVE_FILE)
+                except Exception:
+                    pass
             start_antigravity()
             LocalApiHandler.cached_status = None
-            resp_bytes = b'{"status":"ok"}'
+            resp_bytes = b'{"status":"ok","enrolling":true}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp_bytes)))
+            self.end_headers()
+            self.wfile.write(resp_bytes)
+
+        elif self.path == "/api/enroll/cancel":
+            if os.path.exists(ENROLL_LOCK_FILE):
+                try:
+                    os.remove(ENROLL_LOCK_FILE)
+                except Exception:
+                    pass
+            accounts = get_saved_accounts()
+            if accounts:
+                switch_to_account_core(accounts[0])
+            LocalApiHandler.cached_status = None
+            resp_bytes = b'{"status":"ok","enrolling":false}'
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(resp_bytes)))
@@ -5587,7 +5705,15 @@ class LocalApiHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def build_status_payload(self):
+        is_enrolling = os.path.exists(ENROLL_LOCK_FILE)
         active = save_active_credential()
+        if is_enrolling and active and active != "default_account":
+            if os.path.exists(ENROLL_LOCK_FILE):
+                try:
+                    os.remove(ENROLL_LOCK_FILE)
+                except Exception:
+                    pass
+            is_enrolling = False
         accounts = get_saved_accounts()
         ap_running, _ = is_autopilot_running()
 
@@ -5649,7 +5775,8 @@ class LocalApiHandler(BaseHTTPRequestHandler):
             "quotas": quotas,
             "autopilot": bool(ap_running),
             "best": best,
-            "logs": parsed_logs
+            "logs": parsed_logs,
+            "is_enrolling": bool(is_enrolling)
         }
 
 class ReusableThreadingServer(ThreadingHTTPServer):

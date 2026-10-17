@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import json
+import base64
 import sqlite3
 import shutil
 import subprocess
@@ -102,13 +103,33 @@ ANTIGRAV_ROAMING = os.path.join(APPDATA, "Antigravity")
 ANTIGRAV_EXE = os.path.join(LOCALAPPDATA, "Programs", "Antigravity", "Antigravity.exe")
 STATE_VSCDB_FILE = os.path.join(ANTIGRAV_ROAMING, "User", "globalStorage", "state.vscdb")
 COOKIES_FILE = os.path.join(ANTIGRAV_ROAMING, "Network", "Cookies")
+COOKIES_JOURNAL = os.path.join(ANTIGRAV_ROAMING, "Network", "Cookies-journal")
+APP_STORAGE_JSON = os.path.join(ANTIGRAV_ROAMING, "app_storage.json")
 
 SWITCHER_DIR = os.path.join(USERPROFILE, ".gemini", "antigravity-switcher")
 ACCOUNTS_DIR = os.path.join(SWITCHER_DIR, "accounts")
 ACTIVE_FILE = os.path.join(SWITCHER_DIR, "active_email.txt")
+ENROLL_LOCK_FILE = os.path.join(SWITCHER_DIR, "enrolling.lock")
 AUTOPILOT_PID_FILE = os.path.join(SWITCHER_DIR, "autopilot.pid")
 LOG_FILE = os.path.join(SWITCHER_DIR, "autopilot.log")
 DAEMON_SCRIPT = os.path.join(APP_DIR, "agy_daemon.py")
+
+def get_antigravity_exe():
+    candidates = [
+        ANTIGRAV_EXE,
+        os.path.join(LOCALAPPDATA, "Programs", "antigravity", "Antigravity.exe"),
+        os.path.join(os.environ.get("ProgramFiles", "C:\\Program Files"), "Antigravity", "Antigravity.exe"),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    try:
+        w = shutil.which("Antigravity") or shutil.which("antigravity")
+        if w:
+            return w
+    except Exception:
+        pass
+    return ANTIGRAV_EXE
 
 def ensure_dirs():
     os.makedirs(ACCOUNTS_DIR, exist_ok=True)
@@ -197,6 +218,22 @@ def refresh_access_token(refresh_token):
 def fetch_email_from_blob(blob_bytes):
     try:
         data = json.loads(blob_bytes.decode('utf-8'))
+        
+        # 1. Primary: Fast offline decode from id_token JWT (Modern Antigravity format)
+        id_token = data.get("id_token")
+        if id_token and isinstance(id_token, str):
+            parts = id_token.split('.')
+            if len(parts) >= 2:
+                try:
+                    payload_b64 = parts[1] + '=' * (-len(parts[1]) % 4)
+                    payload = json.loads(base64.urlsafe_b64decode(payload_b64).decode('utf-8'))
+                    email = payload.get("email")
+                    if email:
+                        return email
+                except Exception:
+                    pass
+
+        # 2. Secondary fallback: Refresh token and query Google UserInfo API (Legacy format)
         rf = data.get("token", {}).get("refresh_token", "")
         token = data.get("token", {}).get("access_token", "")
         if rf:
@@ -302,31 +339,59 @@ def save_active_credential():
 def stop_antigravity():
     print("  \033[90m-> Menutup Antigravity...\033[0m")
     try:
-        subprocess.run(["taskkill", "/F", "/IM", "Antigravity.exe"], capture_output=True, text=True)
+        subprocess.run(["taskkill", "/F", "/T", "/IM", "Antigravity.exe"], capture_output=True, text=True)
     except Exception:
         pass
-    time.sleep(2)
+    for _ in range(10):
+        try:
+            out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Antigravity.exe"], capture_output=True, text=True).stdout
+            if "Antigravity.exe" not in out:
+                break
+        except Exception:
+            pass
+        time.sleep(0.5)
 
 def start_antigravity():
     print("  \033[90m-> Membuka Antigravity...\033[0m")
-    if os.path.exists(ANTIGRAV_EXE):
-        subprocess.Popen([ANTIGRAV_EXE], shell=True)
+    exe = get_antigravity_exe()
+    if os.path.exists(exe):
+        subprocess.Popen([exe], shell=True)
     else:
-        print(f"  \033[91mWarning: Tidak dapat menemukan {ANTIGRAV_EXE}\033[0m")
+        print(f"  \033[91mWarning: Tidak dapat menemukan {exe}\033[0m")
 
 def clear_session_cache():
-    if os.path.exists(COOKIES_FILE):
-        try:
-            os.remove(COOKIES_FILE)
-        except Exception:
-            pass
+    # 1. Chromium network cookies & journal
+    for cf in [COOKIES_FILE, COOKIES_JOURNAL]:
+        if os.path.exists(cf):
+            try:
+                os.remove(cf)
+            except Exception:
+                pass
+
+    # 2. Antigravity SQLite state.vscdb
     if os.path.exists(STATE_VSCDB_FILE):
         try:
             conn = sqlite3.connect(STATE_VSCDB_FILE)
             c = conn.cursor()
-            c.execute("DELETE FROM ItemTable WHERE key IN ('antigravityUnifiedStateSync.oauthToken', 'antigravityUnifiedStateSync.userStatus')")
+            c.execute("DELETE FROM ItemTable WHERE key IN ('antigravityOnboarding', 'antigravityUnifiedStateSync.onboarding', 'antigravityUnifiedStateSync.oauthToken', 'antigravityUnifiedStateSync.userStatus')")
             conn.commit()
             conn.close()
+        except Exception:
+            pass
+
+    # 3. Antigravity app_storage.json (remove last login user memory)
+    if os.path.exists(APP_STORAGE_JSON):
+        try:
+            with open(APP_STORAGE_JSON, "r", encoding="utf-8") as f:
+                app_storage = json.load(f)
+            modified = False
+            for k in ["jetski.onboarding.lastLoginUsername", "jetski.onboarding.lastLoginIsGcpTos"]:
+                if k in app_storage:
+                    del app_storage[k]
+                    modified = True
+            if modified:
+                with open(APP_STORAGE_JSON, "w", encoding="utf-8") as f:
+                    json.dump(app_storage, f, indent=2)
         except Exception:
             pass
 
@@ -370,20 +435,69 @@ def switch_to_account(target_email):
     return True
 
 def setup_new_account():
-    print(f"\n\033[36m[1/2]\033[0m Menyimpan sesi akun yang sedang aktif...")
-    save_active_credential()
+    width = 84
+    ensure_dirs()
+    print(f"\n\033[36m[1/3]\033[0m Menyimpan sesi akun yang sedang aktif...")
+    prev_email = save_active_credential()
     
-    print(f"\033[36m[2/2]\033[0m Membersihkan sesi untuk login akun baru...")
+    # Pasang enrollment lock agar background daemon tidak menginterupsi/auto-switch
+    try:
+        with open(ENROLL_LOCK_FILE, "w", encoding="utf-8") as f:
+            f.write(str(int(time.time())))
+    except Exception:
+        pass
+        
+    print(f"\033[36m[2/3]\033[0m Membersihkan sesi untuk login akun baru...")
     stop_antigravity()
     delete_windows_credential(CRED_TARGET)
     clear_session_cache()
     
     if os.path.exists(ACTIVE_FILE):
-        os.remove(ACTIVE_FILE)
+        try:
+            os.remove(ACTIVE_FILE)
+        except Exception:
+            pass
         
     start_antigravity()
-    print("\n\033[92m✅ Silakan Sign In ke akun Google barumu saat Antigravity terbuka.\033[0m")
-    print("   \033[90mSetelah login selesai, akun baru otomatis terdaftar di switcher ini.\033[0m\n")
+    print(f"\033[36m[3/3]\033[0m Membuka jendela Antigravity...")
+    
+    print("\n" + make_box_top("\033[1;36m🔑 PENDAFTARAN AKUN BARU\033[0m", width))
+    print(pad_box_line("1. Antigravity telah dibuka dengan sesi kosong.", width))
+    print(pad_box_line("2. Silakan klik 'Sign In' di jendela Antigravity dengan akun Google barumu.", width))
+    print(pad_box_line("", width))
+    print(pad_box_line("\033[93m⏳ Menunggu Anda menyelesaikan login di Antigravity...\033[0m", width))
+    print(pad_box_line("\033[90m   (Tekan Ctrl+C jika ingin membatalkan pendaftaran)\033[0m", width))
+    print(make_box_bottom(width))
+    
+    new_email = None
+    try:
+        for _ in range(150): # Polling hingga 5 menit
+            time.sleep(2)
+            cred = read_windows_credential()
+            if cred and cred.get("blob"):
+                email = fetch_email_from_blob(cred["blob"])
+                if email and email != "default_account" and email != prev_email:
+                    new_email = email
+                    save_active_credential()
+                    break
+    except KeyboardInterrupt:
+        print("\n\033[93mPendaftaran dibatalkan oleh user.\033[0m")
+    finally:
+        if os.path.exists(ENROLL_LOCK_FILE):
+            try:
+                os.remove(ENROLL_LOCK_FILE)
+            except Exception:
+                pass
+                
+    if new_email:
+        print(f"\n\033[1;92m🎉 Sukses! Akun baru [{new_email}] berhasil terdaftar dan aktif!\033[0m")
+        time.sleep(2)
+        return True
+    else:
+        if prev_email:
+            print(f"\n\033[90mTidak ada login baru terdeteksi. Mengembalikan ke akun sebelumnya [{prev_email}]...\033[0m")
+            switch_to_account(prev_email)
+        return False
 
 def remove_account_flow(accounts, current_email):
     width = 84

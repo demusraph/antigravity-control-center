@@ -22,6 +22,7 @@ SWITCHER_DIR = os.path.join(USERPROFILE, ".gemini", "antigravity-switcher")
 LOG_FILE = os.path.join(SWITCHER_DIR, "autopilot.log")
 DEVTOOLS_PORT_FILE = os.path.join(APPDATA, "Antigravity", "DevToolsActivePort")
 LANG_SERVER_LOG = os.path.join(APPDATA, "Antigravity", "logs", "language_server.log")
+ENROLL_LOCK_FILE = os.path.join(SWITCHER_DIR, "enrolling.lock")
 
 # Import core switcher functions
 try:
@@ -224,6 +225,11 @@ def main_loop():
             if not is_antigravity_running():
                 continue
 
+            # Jangan lakukan auto-switch jika user sedang mendaftarkan akun baru
+            if os.path.exists(ENROLL_LOCK_FILE):
+                log("Sesi enrollment akun baru sedang berlangsung. Auto-Pilot siaga...")
+                continue
+
             current_email = None
             if os.path.exists(agy_switcher.ACTIVE_FILE):
                 try:
@@ -231,6 +237,10 @@ def main_loop():
                         current_email = f.read().strip()
                 except Exception:
                     pass
+
+            if not current_email:
+                # Belum ada akun aktif terdaftar (misal sesi login baru belum selesai)
+                continue
 
             # Check 1: Error in language_server.log
             is_exhausted_in_log, last_log_pos = check_log_for_rate_limit(last_log_pos)
